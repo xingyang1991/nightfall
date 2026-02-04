@@ -326,6 +326,7 @@ function NightfallTicket({ model, props, onAction }: { surfaceId: string; model:
       }
     } else if (typeof actionData === 'string') {
       // 字符串类型的 action
+      console.log('String action:', actionData, 'payload:', payload);
       switch (actionData) {
         case 'NAVIGATE': {
           const { lat, lng, name } = payload;
@@ -334,7 +335,36 @@ function NightfallTicket({ model, props, onAction }: { surfaceId: string; model:
             const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
             window.open(url, '_blank');
             recordPlaceVisit();
+          } else {
+            console.warn('NAVIGATE action missing lat/lng:', payload);
+            // Fallback: 如果没有坐标但有名称，仍然尝试搜索
+            if (name) {
+              const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+              window.open(url, '_blank');
+              recordPlaceVisit();
+            }
           }
+          break;
+        }
+        case 'START_ROUTE': {
+          const { lat, lng, name } = payload;
+          if (lat && lng) {
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+            window.open(url, '_blank');
+            recordPlaceVisit();
+          } else if (name) {
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(name)}`;
+            window.open(url, '_blank');
+            recordPlaceVisit();
+          }
+          break;
+        }
+        case 'PLAY': {
+          onAction('RADIO_PLAY', { track_id: payload.track_id });
+          break;
+        }
+        case 'START_FOCUS': {
+          onAction('ENTER_FOCUS_MODE', { duration: payload.duration ?? 25 });
           break;
         }
         default:

@@ -66,6 +66,18 @@ async function getClient(): Promise<GoogleGenAI | null> {
   return ai;
 }
 
+/** Payload schema for navigation actions */
+const PAYLOAD_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    lat: { type: Type.NUMBER, description: 'Latitude of the destination (Shanghai area: 31.0-31.5)' },
+    lng: { type: Type.NUMBER, description: 'Longitude of the destination (Shanghai area: 121.0-122.0)' },
+    name: { type: Type.STRING, description: 'Name of the place in Chinese' },
+    address: { type: Type.STRING, description: 'Full address of the place in Chinese' }
+  },
+  required: ['lat', 'lng', 'name']
+};
+
 /** Shared schema fragments */
 const CANDIDATE_ITEM_SCHEMA = {
   type: Type.OBJECT,
@@ -101,9 +113,10 @@ export const CURATORIAL_BUNDLE_SCHEMA = {
         risk_flags: { type: Type.ARRAY, items: { type: Type.STRING } },
         expires_at: { type: Type.STRING },
         action: { type: Type.STRING, description: 'One of: NAVIGATE, START_ROUTE, PLAY, START_FOCUS' },
-        action_label: { type: Type.STRING }
+        action_label: { type: Type.STRING },
+        payload: PAYLOAD_SCHEMA
       },
-      required: ['id', 'title', 'reason', 'checklist', 'expires_at', 'action', 'action_label', 'risk_flags']
+      required: ['id', 'title', 'reason', 'checklist', 'expires_at', 'action', 'action_label', 'risk_flags', 'payload']
     },
     plan_b: {
       type: Type.OBJECT,
@@ -115,9 +128,10 @@ export const CURATORIAL_BUNDLE_SCHEMA = {
         risk_flags: { type: Type.ARRAY, items: { type: Type.STRING } },
         expires_at: { type: Type.STRING },
         action: { type: Type.STRING, description: 'One of: NAVIGATE, START_ROUTE, PLAY, START_FOCUS' },
-        action_label: { type: Type.STRING }
+        action_label: { type: Type.STRING },
+        payload: PAYLOAD_SCHEMA
       },
-      required: ['id', 'title', 'reason', 'checklist', 'action', 'action_label']
+      required: ['id', 'title', 'reason', 'checklist', 'action', 'action_label', 'payload']
     },
     ambient_tokens: { type: Type.ARRAY, items: { type: Type.STRING } },
     candidate_pool: { type: Type.ARRAY, items: CANDIDATE_ITEM_SCHEMA },
@@ -201,6 +215,12 @@ CONSTRAINTS:
 - Reason: 1-2 sentences.
 - "Delivery is exit": Provide a single clear outcome.
 - Plan B must be a real executable alternative with its own action and action_label.
+- IMPORTANT: For NAVIGATE or START_ROUTE actions, you MUST provide a real Shanghai location with:
+  - lat: latitude (31.0-31.5 range for Shanghai)
+  - lng: longitude (121.0-122.0 range for Shanghai)
+  - name: place name in Chinese
+  - address: full address in Chinese
+- Use real, well-known Shanghai locations (cafes, hotels, parks, etc.)
 OUTPUT: JSON only.
 `.trim();
 
@@ -241,7 +261,13 @@ function stubBundle(seed: string): CuratorialBundle {
       risk_flags: ['parking_uncertain'],
       expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
       action: 'NAVIGATE',
-      action_label: 'Go'
+      action_label: 'Go',
+      payload: {
+        lat: 31.2304,
+        lng: 121.4737,
+        name: '% Arabica 武康路店',
+        address: '上海市徐汇区武康路378号'
+      }
     },
     plan_b: {
       id: 'plan_b',
@@ -250,7 +276,13 @@ function stubBundle(seed: string): CuratorialBundle {
       checklist: ['Walk in calmly', 'Sit at the edge', 'Order tea if needed'],
       risk_flags: ['noise_low'],
       action: 'NAVIGATE',
-      action_label: 'Switch'
+      action_label: 'Switch',
+      payload: {
+        lat: 31.2397,
+        lng: 121.4748,
+        name: '静安香格里拉大酒店大堂',
+        address: '上海市静安区延安中路1218号'
+      }
     },
     ambient_tokens: ['mist', 'warm', 'steady']
   };
