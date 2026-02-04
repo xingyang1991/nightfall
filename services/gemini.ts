@@ -6,8 +6,8 @@ let ai: GoogleGenAI | null = null;
 let aiKey: string | null = null;
 let envLoaded = false;
 
-// ============ 使用稳定的 Gemini 1.5 Flash 模型 ============
-const MODEL_NAME = 'gemini-1.5-flash';
+// ============ 使用 Gemini 2.5 Flash 模型（2026年最新稳定版）============
+const MODEL_NAME = 'gemini-2.5-flash';
 
 // ============ 上海真实地点数据库（用于多样性推荐）============
 const SHANGHAI_PLACES = {
@@ -243,8 +243,10 @@ export const CANDIDATE_POOL_SCHEMA = {
 async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T): Promise<T> {
   const client = await getClient();
   if (!client) {
-    console.log('[Gemini] No client available, using fallback');
-    return fallback();
+    // 不再静默回退，而是抛出明确错误
+    const errorMsg = '[Gemini] No valid API key configured. Please set GEMINI_API_KEY environment variable.';
+    console.error(errorMsg);
+    throw new Error(errorMsg);
   }
 
   let response: any;
@@ -280,15 +282,17 @@ async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T):
       console.log('[Gemini] Retry succeeded');
     } catch (retryError: any) {
       console.error('[Gemini] Retry also failed:', retryError?.message || retryError);
-      return fallback();
+      // 不再静默回退，而是抛出明确错误
+      throw new Error(`[Gemini] API call failed after retry: ${retryError?.message || 'Unknown error'}`);
     }
   }
 
   try {
     const text = response?.text?.trim() || '';
     if (!text) {
-      console.error('[Gemini] Empty response text');
-      return fallback();
+      const errorMsg = '[Gemini] Empty response text from API';
+      console.error(errorMsg);
+      throw new Error(errorMsg);
     }
     const parsed = JSON.parse(text) as T;
     console.log('[Gemini] Successfully parsed response');
@@ -296,7 +300,8 @@ async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T):
   } catch (error: any) {
     console.error('[Gemini] Failed to parse JSON:', error?.message);
     console.error('[Gemini] Raw response:', response?.text?.slice(0, 500));
-    return fallback();
+    // 不再静默回退，而是抛出明确错误
+    throw new Error(`[Gemini] Failed to parse API response: ${error?.message || 'Unknown error'}`);
   }
 }
 
