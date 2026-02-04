@@ -73,7 +73,7 @@ body::after{
 
 /* Nightfall image grade */
 .nf-grade{
-  position: relative;
+  /* position is inherited from parent (absolute or relative) */
   overflow: hidden;
   background-size: cover;
   background-position: center;
