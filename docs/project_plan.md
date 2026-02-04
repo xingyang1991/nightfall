@@ -260,7 +260,7 @@ interface Skill {
 
 | 变量名 | 说明 | 示例值 |
 |--------|------|--------|
-| GEMINI_API_KEY | Gemini API 密钥 | AIzaSy... |
+| GEMINI_API_KEY | Gemini API 密钥 | (在部署环境中设置) |
 | NF_TOOL_MODE | 工具模式 (stub/real) | real |
 | PLACES_PROVIDER | 地点服务提供商 | google |
 | WEATHER_PROVIDER | 天气服务提供商 | openmeteo |
