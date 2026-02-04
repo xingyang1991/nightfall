@@ -6,6 +6,9 @@ let ai: GoogleGenAI | null = null;
 let aiKey: string | null = null;
 let envLoaded = false;
 
+// ============ P0-2: 使用稳定的 Gemini 2.5 Flash-Lite 模型 ============
+const MODEL_NAME = 'gemini-2.5-flash-lite';
+
 function isNodeRuntime(): boolean {
   return typeof process !== 'undefined' && Boolean((process as any).versions?.node);
 }
@@ -58,10 +61,14 @@ async function resolveApiKey(): Promise<string> {
 
 async function getClient(): Promise<GoogleGenAI | null> {
   const key = await resolveApiKey();
-  if (!key) return null;
+  if (!key) {
+    console.warn('[Gemini] No valid API key found, will use stub data');
+    return null;
+  }
   if (!ai || aiKey !== key) {
     ai = new GoogleGenAI({ apiKey: key });
     aiKey = key;
+    console.log('[Gemini] Client initialized with model:', MODEL_NAME);
   }
   return ai;
 }
@@ -168,32 +175,114 @@ export const CANDIDATE_POOL_SCHEMA = {
   required: ['candidate_pool']
 };
 
+// ============ P0-1 & P0-3: 改进的 LLM 调用函数 ============
 async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T): Promise<T> {
   const client = await getClient();
-  if (!client) return fallback();
+  if (!client) {
+    console.log('[Gemini] No client available, using fallback');
+    return fallback();
+  }
 
   let response: any;
   try {
+    console.log('[Gemini] Sending request to', MODEL_NAME);
     response = await client.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: MODEL_NAME,
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
         responseSchema: schema
       }
     });
-  } catch (error) {
-    console.error('Gemini request failed:', error);
-    return fallback();
+    console.log('[Gemini] Response received successfully');
+  } catch (error: any) {
+    // ============ P0-1: 暴露错误信息而非静默失败 ============
+    console.error('[Gemini] API request failed:', error?.message || error);
+    console.error('[Gemini] Full error:', JSON.stringify(error, null, 2));
+    
+    // 尝试不使用 schema 的简化模式
+    try {
+      console.log('[Gemini] Retrying without strict schema...');
+      response = await client.models.generateContent({
+        model: MODEL_NAME,
+        contents: prompt + '\n\nIMPORTANT: Return valid JSON only, no markdown formatting.',
+        config: {
+          responseMimeType: 'application/json'
+        }
+      });
+      console.log('[Gemini] Retry succeeded');
+    } catch (retryError: any) {
+      console.error('[Gemini] Retry also failed:', retryError?.message || retryError);
+      return fallback();
+    }
   }
 
   try {
-    return JSON.parse(response.text.trim()) as T;
-  } catch (error) {
-    console.error('Failed to parse Gemini JSON:', error);
+    const text = response?.text?.trim() || '';
+    if (!text) {
+      console.error('[Gemini] Empty response text');
+      return fallback();
+    }
+    const parsed = JSON.parse(text) as T;
+    console.log('[Gemini] Successfully parsed response');
+    return parsed;
+  } catch (error: any) {
+    console.error('[Gemini] Failed to parse JSON:', error?.message);
+    console.error('[Gemini] Raw response:', response?.text?.slice(0, 500));
     return fallback();
   }
 }
+
+// ============ P0-4: 优化的 Prompt 设计（带 one-shot 示例）============
+const ONE_SHOT_BUNDLE_EXAMPLE = `
+EXAMPLE OUTPUT:
+{
+  "primary_ending": {
+    "id": "primary",
+    "title": "深夜书房角落",
+    "reason": "安静、低压力、适合独处思考。",
+    "checklist": ["选择靠墙的位置", "点一杯热饮", "停留60-90分钟"],
+    "risk_flags": ["parking_uncertain"],
+    "expires_at": "2026-02-05T02:00:00.000Z",
+    "action": "NAVIGATE",
+    "action_label": "Go",
+    "payload": {
+      "lat": 31.2304,
+      "lng": 121.4737,
+      "name": "% Arabica 武康路店",
+      "address": "上海市徐汇区武康路378号"
+    }
+  },
+  "plan_b": {
+    "id": "plan_b",
+    "title": "酒店大堂备选",
+    "reason": "更保守的选择，营业时间更长。",
+    "checklist": ["从容走入", "坐在边缘位置", "需要时点杯茶"],
+    "risk_flags": ["noise_low"],
+    "action": "NAVIGATE",
+    "action_label": "Switch",
+    "payload": {
+      "lat": 31.2397,
+      "lng": 121.4748,
+      "name": "静安香格里拉大酒店大堂",
+      "address": "上海市静安区延安中路1218号"
+    }
+  },
+  "ambient_tokens": ["mist", "warm", "steady"]
+}
+`;
+
+const ONE_SHOT_CANDIDATES_EXAMPLE = `
+EXAMPLE OUTPUT:
+{
+  "candidate_pool": [
+    { "id": "A", "title": "安静的角落", "tag": "LOW RISK", "desc": "少交谈，坐下来，呼吸，恢复状态。" },
+    { "id": "B", "title": "短途散步路线", "tag": "MICRO ROUTE", "desc": "20-35分钟，路灯安全，容易退出。" },
+    { "id": "C", "title": "温暖的夜饮", "tag": "WARM", "desc": "一杯饮品，一张桌子，无需表演。" }
+  ],
+  "ui": { "infoDensity": 0.28, "uiModeHint": "explore", "toneTags": ["minimal"] }
+}
+`;
 
 /**
  * Legacy wrapper: Tonight composer prompt (kept for compatibility).
@@ -221,7 +310,10 @@ CONSTRAINTS:
   - name: place name in Chinese
   - address: full address in Chinese
 - Use real, well-known Shanghai locations (cafes, hotels, parks, etc.)
-OUTPUT: JSON only.
+
+${ONE_SHOT_BUNDLE_EXAMPLE}
+
+OUTPUT: JSON only, following the exact structure shown in the example.
 `.trim();
 
   return runGeminiJSON<CuratorialBundle>(prompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(userInput));
@@ -229,17 +321,20 @@ OUTPUT: JSON only.
 
 /** Generic: produce a CuratorialBundle from an already-built prompt (skills use this). */
 export async function generateCuratorialBundleWithGemini(prompt: string): Promise<CuratorialBundle> {
-  return runGeminiJSON<CuratorialBundle>(prompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(''));
+  const enhancedPrompt = prompt + '\n\n' + ONE_SHOT_BUNDLE_EXAMPLE + '\n\nOUTPUT: JSON only.';
+  return runGeminiJSON<CuratorialBundle>(enhancedPrompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(''));
 }
 
 /** Generic: produce a candidate pool for multi-stage skills. */
 export async function generateCandidatePoolWithGemini(prompt: string): Promise<{ candidate_pool: CandidateItem[]; ui?: any }> {
-  return runGeminiJSON<{ candidate_pool: CandidateItem[]; ui?: any }>(prompt, CANDIDATE_POOL_SCHEMA, () => stubCandidates());
+  const enhancedPrompt = prompt + '\n\n' + ONE_SHOT_CANDIDATES_EXAMPLE + '\n\nOUTPUT: JSON only.';
+  return runGeminiJSON<{ candidate_pool: CandidateItem[]; ui?: any }>(enhancedPrompt, CANDIDATE_POOL_SCHEMA, () => stubCandidates());
 }
 
 /** --- Stubs (no API key / parse errors) --- */
 
 function stubCandidates(): { candidate_pool: CandidateItem[]; ui?: any } {
+  console.log('[Gemini] Using stub candidates');
   return {
     candidate_pool: [
       { id: 'A', title: 'A quiet corner', tag: 'LOW RISK', desc: 'Minimal talking. Sit down, breathe, regain shape.' },
@@ -251,6 +346,7 @@ function stubCandidates(): { candidate_pool: CandidateItem[]; ui?: any } {
 }
 
 function stubBundle(seed: string): CuratorialBundle {
+  console.log('[Gemini] Using stub bundle');
   const title = seed?.trim() ? seed.trim().slice(0, 24) : 'A quiet corner & a warm drink';
   return {
     primary_ending: {

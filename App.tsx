@@ -4,7 +4,7 @@ import StarMap from './components/StarMap';
 import { A2UIRuntimeProvider, useA2UIRuntime } from './a2ui/store';
 import { SurfaceView } from './a2ui/renderer';
 import { NightfallOrchestrator } from './a2ui/orchestrator';
-import { Ghost, Compass, History, Layers, Zap, ArrowDown } from 'lucide-react';
+import { Ghost, Compass, History, Layers, Zap, ArrowDown, Lamp } from 'lucide-react';
 import type { A2UIAction } from './a2ui/messages';
 
 const INITIAL_CONTEXT: ContextSignals = {
@@ -314,7 +314,8 @@ const A2UIBridge: React.FC<BridgeProps> = ({
           { id: ChannelType.TONIGHT, icon: <Zap size={14} />, label: 'Tonight' },
           { id: ChannelType.DISCOVER, icon: <Compass size={14} />, label: 'Discover' },
           { id: ChannelType.SKY, icon: <Layers size={14} />, label: 'Sky' },
-          { id: ChannelType.POCKET, icon: <History size={14} />, label: 'Pocket' }
+          { id: ChannelType.POCKET, icon: <History size={14} />, label: 'Pocket' },
+          { id: ChannelType.VEIL, icon: <Lamp size={14} />, label: 'Veil' }
         ].map((item) => (
           <button
             key={item.id}

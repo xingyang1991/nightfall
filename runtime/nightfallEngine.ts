@@ -346,6 +346,15 @@ export class NightfallEngine {
         return { messages, effects };
       }
 
+      // P2-3: Focus 模式入口
+      case 'ENTER_FOCUS_MODE': {
+        const duration = Number((action.payload as any)?.duration ?? 25);
+        this.session.focusDuration = duration;
+        this.session.focusStartTime = Date.now();
+        effects.push({ type: 'enter_focus' });
+        return { messages: [], effects };
+      }
+
       case 'OPEN_VEIL':
         effects.push({ type: 'set_channel', channel: 'veil' });
         messages.push(...this.patchVeil(context));
@@ -510,6 +519,17 @@ export class NightfallEngine {
     const sig = circleGet(this.session, grid, mode, now, this.circleCfg);
     const pressure = sig.visible ? (sig.intensity >= 3 ? 'Warm' : 'Soft') : 'Quiet';
 
+    // ============ P1-2: 计算真实日落时间 ============
+    const lat = context.location?.lat ?? 31.23;
+    const lng = context.location?.lng ?? 121.47;
+    const sunTimes = calculateSunTimes(lat, lng, new Date());
+    const sunsetStr = sunTimes.sunset ? formatTime(sunTimes.sunset) : '18:30';
+    const sunriseStr = sunTimes.sunrise ? formatTime(sunTimes.sunrise) : '06:30';
+    
+    // ============ P1-2: 获取天气描述 ============
+    const weatherDesc = this.session.weatherDesc || getWeatherDescription(context);
+    const ambientLine = `${weatherDesc} · 日落 ${sunsetStr}`;
+
     return [
       {
         dataModelUpdate: {
@@ -517,8 +537,11 @@ export class NightfallEngine {
           contents: [
             { key: 'sky', value: { valueMap: [
               { key: 'pressure', value: { valueString: pressure } },
-              { key: 'ambient', value: { valueString: sig.summaryLine } },
-              { key: 'backdrop_ref', value: { valueString: 'nf://texture/moon' } }
+              { key: 'ambient', value: { valueString: ambientLine } },
+              { key: 'backdrop_ref', value: { valueString: 'nf://texture/moon' } },
+              { key: 'sunset', value: { valueString: sunsetStr } },
+              { key: 'sunrise', value: { valueString: sunriseStr } },
+              { key: 'weather', value: { valueString: weatherDesc } }
             ]}}
           ]
         }
@@ -846,4 +869,72 @@ function hasPlacesPhotoKey() {
   } catch {
     return false;
   }
+}
+
+
+// ============ P1-2: 日出日落计算函数 ============
+function calculateSunTimes(lat: number, lng: number, date: Date): { sunrise: Date | null; sunset: Date | null } {
+  // 简化的日出日落计算（基于 NOAA 算法简化版）
+  const dayOfYear = Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000);
+  const radLat = lat * Math.PI / 180;
+  
+  // 太阳赤纬角
+  const declination = 23.45 * Math.sin((360 / 365) * (dayOfYear - 81) * Math.PI / 180) * Math.PI / 180;
+  
+  // 时角
+  const hourAngle = Math.acos(-Math.tan(radLat) * Math.tan(declination));
+  const hourAngleDeg = hourAngle * 180 / Math.PI;
+  
+  // 日出日落时间（本地时间）
+  const solarNoon = 12 - lng / 15; // 简化：不考虑时区，假设东八区
+  const timezone = 8; // 中国时区
+  const sunriseHour = solarNoon - hourAngleDeg / 15 + timezone;
+  const sunsetHour = solarNoon + hourAngleDeg / 15 + timezone;
+  
+  const sunrise = new Date(date);
+  sunrise.setHours(Math.floor(sunriseHour), Math.round((sunriseHour % 1) * 60), 0, 0);
+  
+  const sunset = new Date(date);
+  sunset.setHours(Math.floor(sunsetHour), Math.round((sunsetHour % 1) * 60), 0, 0);
+  
+  return { sunrise, sunset };
+}
+
+function formatTime(date: Date): string {
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function getWeatherDescription(context: ContextSignals): string {
+  // 根据上下文信号生成天气描述
+  const weather = context.weather;
+  if (!weather) return '晴朗';
+  
+  const temp = weather.temp_c;
+  const condition = weather.condition || 'clear';
+  
+  // 天气状况映射
+  const conditionMap: Record<string, string> = {
+    'clear': '晴朗',
+    'sunny': '晴朗',
+    'cloudy': '多云',
+    'partly_cloudy': '局部多云',
+    'overcast': '阴天',
+    'rain': '有雨',
+    'light_rain': '小雨',
+    'heavy_rain': '大雨',
+    'snow': '有雪',
+    'fog': '有雾',
+    'mist': '薄雾',
+    'haze': '霾'
+  };
+  
+  const conditionText = conditionMap[condition] || '晴朗';
+  
+  if (typeof temp === 'number') {
+    return `${conditionText} ${Math.round(temp)}°C`;
+  }
+  
+  return conditionText;
 }

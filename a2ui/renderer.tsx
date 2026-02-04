@@ -816,30 +816,110 @@ function RadioStrip({ model, props, onAction }: { model: any; props: any; onActi
   const playing = Boolean(getByPath(model, props?.playingPath ?? '/radio/playing'));
   const trackId = resolveText(model, { path: props?.trackIdPath ?? '/radio/track_id' });
   const coverRef = resolveText(model, { path: props?.coverPath ?? '/radio/cover_ref' });
+  const [isPlaying, setIsPlaying] = React.useState(playing);
+  const [audioContext, setAudioContext] = React.useState<AudioContext | null>(null);
+  const [oscillator, setOscillator] = React.useState<OscillatorNode | null>(null);
+
+  // P2-1: 环境音生成器（用于演示）
+  const toggleAmbientSound = () => {
+    if (isPlaying) {
+      // 停止播放
+      if (oscillator) {
+        oscillator.stop();
+        oscillator.disconnect();
+        setOscillator(null);
+      }
+      if (audioContext) {
+        audioContext.close();
+        setAudioContext(null);
+      }
+      setIsPlaying(false);
+    } else {
+      // 开始播放环境音
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        // 创建柔和的环境音
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, ctx.currentTime); // A3 音符
+        gainNode.gain.setValueAtTime(0.05, ctx.currentTime); // 很低的音量
+        
+        // 添加缓慢的频率调制创造环境感
+        osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 2);
+        osc.frequency.linearRampToValueAtTime(240, ctx.currentTime + 4);
+        osc.frequency.linearRampToValueAtTime(220, ctx.currentTime + 6);
+        
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.start();
+        
+        setAudioContext(ctx);
+        setOscillator(osc);
+        setIsPlaying(true);
+      } catch (e) {
+        console.log('[Radio] Audio not supported:', e);
+      }
+    }
+    onAction('RADIO_TOGGLE', { track_id: trackId, playing: !isPlaying });
+  };
+
+  // 清理音频资源
+  React.useEffect(() => {
+    return () => {
+      if (oscillator) oscillator.stop();
+      if (audioContext) audioContext.close();
+    };
+  }, []);
+
+  // 生成动态叙事文案
+  const displayNarrative = narrative || getAmbientNarrative();
 
   return (
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-md z-40">
       <div className="bg-black/55 border border-white/10 rounded-full px-6 py-4 backdrop-blur-2xl shadow-2xl flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {coverRef ? (
-            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 nf-grade" style={resolveImageStyle(coverRef, trackId || 'radio')} />
+            <div className={`w-10 h-10 rounded-full overflow-hidden border border-white/10 nf-grade ${isPlaying ? 'animate-pulse' : ''}`} style={resolveImageStyle(coverRef, trackId || 'radio')} />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-white/[0.05] border border-white/10" />
+            <div className={`w-10 h-10 rounded-full bg-white/[0.05] border border-white/10 ${isPlaying ? 'animate-pulse' : ''}`} />
           )}
           <div className="min-w-0">
-            <div className="text-[9px] mono uppercase tracking-[0.3em] text-white/15">Radio</div>
-            <div className="text-[12px] text-white/40 font-light truncate">{narrative || '...'}</div>
+            <div className="text-[9px] mono uppercase tracking-[0.3em] text-white/15">Radio {isPlaying ? '●' : ''}</div>
+            <div className="text-[12px] text-white/40 font-light truncate">{displayNarrative}</div>
           </div>
         </div>
         <button
-          onClick={() => onAction('RADIO_TOGGLE', { track_id: trackId })}
-          className="w-10 h-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center hover:bg-white/[0.10] transition-all"
+          onClick={toggleAmbientSound}
+          className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all ${isPlaying ? 'bg-white/20 border-white/30' : 'bg-white/[0.06] border-white/10 hover:bg-white/[0.10]'}`}
         >
-          {playing ? <div className="w-3 h-3 bg-white/30 rounded-sm" /> : <Play size={16} className="text-white/30" />}
+          {isPlaying ? <div className="w-3 h-3 bg-white/50 rounded-sm" /> : <Play size={16} className="text-white/30" />}
         </button>
       </div>
     </div>
   );
+}
+
+// P2-1: 生成环境叙事文案
+function getAmbientNarrative(): string {
+  const hour = new Date().getHours();
+  const narratives = [
+    '夜幕降临，城市开始呼吸...',
+    '月光穿过云层，洒向街道...',
+    '远处的灯火闪烁，像星星一样...',
+    '夜风轻拂，带来远方的故事...',
+    '城市的心跳，此刻安静...',
+    '深夜的咖啡馆，等待着你...',
+  ];
+  
+  if (hour >= 23 || hour < 5) {
+    return '深夜的城市，只属于清醒的人...';
+  } else if (hour >= 19) {
+    return narratives[Math.floor(Math.random() * narratives.length)];
+  } else {
+    return '白天的喧嚣即将退去...';
+  }
 }
 
 function SkyStats({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
