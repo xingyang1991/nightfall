@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from '@anthropic-ai/sdk/node_modules/@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import type { CuratorialBundle, CandidateItem } from '../types';
 import type { ContextSignals } from '../types';
 import { searchPlaces, searchNearby, getSearchKeywords, formatDistance, formatWalkTime, hasAmapKey, getPhotoUrl, type AmapPlace } from './amap';
