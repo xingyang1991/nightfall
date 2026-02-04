@@ -88,6 +88,8 @@ export interface ContextSignals {
     city_id: string;
     place_context: 'home' | 'work' | 'unknown';
     location_quality: 'ok' | 'low' | 'none';
+    lat?: number;
+    lng?: number;
   };
   mobility: {
     motion_state: MotionState;
