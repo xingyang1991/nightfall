@@ -7,7 +7,8 @@ let aiKey: string | null = null;
 let envLoaded = false;
 
 // ============ P0-2: 使用稳定的 Gemini 2.5 Flash-Lite 模型 ============
-const MODEL_NAME = 'gemini-2.5-flash-lite';
+// 使用稳定的 Gemini 1.5 Flash 模型（确保存在且稳定）
+const MODEL_NAME = 'gemini-1.5-flash';
 
 function isNodeRuntime(): boolean {
   return typeof process !== 'undefined' && Boolean((process as any).versions?.node);
