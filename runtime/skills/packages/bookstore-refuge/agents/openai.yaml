@@ -1,0 +1,4 @@
+interface:
+  display_name: "书里偷闲"
+  short_description: "找可久坐、不尴尬的书店式空间，45–120 分钟恢复秩序感"
+  default_prompt: "用 $bookstore-refuge 帮我找个能坐住的书店式空间，待 90 分钟。"

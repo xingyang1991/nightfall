@@ -1,0 +1,4 @@
+interface:
+  display_name: "隐形参与活动"
+  short_description: "参加活动但不社交：进场在场退场三段脚本与10分钟撤退路线"
+  default_prompt: "用 $attend-invisibly 给我一份去活动但不社交的进场/在场/退场小抄。"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "拐进内街"
+  short_description: "带你拐进内街找主理人店，挑一件长期用的生活补丁，不买也成立"
+  default_prompt: "用 $inner-street-detour 给我一个不挤的内街路线，帮我挑一件 50–200 元的小物。"

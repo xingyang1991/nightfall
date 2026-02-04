@@ -1,0 +1,4 @@
+interface:
+  display_name: "Artwalk Planner"
+  short_description: "Builds 3-stop artwalks with cinematic pacing"
+  default_prompt: "Use $plan-artwalk to plan a 90-minute, three-stop Artwalk with a Plan B."

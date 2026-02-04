@@ -1,0 +1,4 @@
+interface:
+  display_name: "一人也好吃"
+  short_description: "Curate solo-dining picks with scripts and retreat rules"
+  default_prompt: "使用 $solo-meal-editor 生成一人餐候选页与定稿页。"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Follow Favorite Artists"
+  short_description: "少而准的艺术家提醒"
+  default_prompt: "使用 $follow-favorite-artists 建立艺术家关注名单，给出 1 主 + 2 备的近期出现，并提供最终到访方案与低频提醒策略。"

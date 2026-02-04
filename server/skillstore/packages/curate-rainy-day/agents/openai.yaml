@@ -1,0 +1,4 @@
+interface:
+  display_name: "雨天也安逸"
+  short_description: "雨天也安逸：室内避雨候选页、定稿页与退路策略编辑指南"
+  default_prompt: "用 $curate-rainy-day 生成雨天候选页与定稿页，包含入口动线、伞外套处理与 Plan B。"

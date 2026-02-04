@@ -1,0 +1,4 @@
+interface:
+  display_name: "展后留评"
+  short_description: "Turn a finished exhibit into a one-line ticket note"
+  default_prompt: "Use $leave-exhibit-review to compress a just-finished exhibition into a one-line or ticket-style recap."

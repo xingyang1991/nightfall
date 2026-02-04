@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architecture Citywalk"
+  short_description: "Architect/style-led 3-stop citywalks with prompts."
+  default_prompt: "Use -architecture-citywalk to plan a non-academic architecture citywalk: offer 2-3 route options, then finalize one 3-stop route with three observation prompts per stop."

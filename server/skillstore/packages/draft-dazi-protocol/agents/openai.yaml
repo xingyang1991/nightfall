@@ -1,0 +1,4 @@
+interface:
+  display_name: "搭子不尴尬协议"
+  short_description: "Three-rule buddy protocol with exits and Plan B"
+  default_prompt: "Use $draft-dazi-protocol to draft a low-pressure buddy protocol with time/form/exit rules."

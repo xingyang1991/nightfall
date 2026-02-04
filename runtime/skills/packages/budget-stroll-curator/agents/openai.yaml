@@ -1,0 +1,4 @@
+interface:
+  display_name: "千元以内逛逛"
+  short_description: "预算买手栏目：千元以内也能有风格的逛逛路线与撤退法"
+  default_prompt: "用 $budget-stroll-curator 生成“千元以内逛逛”的候选页，并在选中后输出定稿页。"

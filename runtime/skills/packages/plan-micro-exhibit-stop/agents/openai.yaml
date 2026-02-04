@@ -1,0 +1,4 @@
+interface:
+  display_name: "顺路看展"
+  short_description: "在顺路范围内挑一个无需预约的10-20分钟微展停靠"
+  default_prompt: "用 $plan-micro-exhibit-stop 在我顺路范围内找一个10分钟微展停靠。"

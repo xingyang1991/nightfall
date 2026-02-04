@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* Nightfall base + Style Envelope variables */
+:root{
+  --nf-warmth: 0.45;
+  --nf-contrast: 0.65;
+  --nf-saturation: 0.25;
+  --nf-ink: 0.95;
+  --nf-mist: 0.18;
+  --nf-grain: 0.10;
+  --nf-bloom: 0.22;
+
+  --nf-card-alpha: 0.045;
+  --nf-card-border-alpha: 0.10;
+
+  --nf-motion: 0.65;
+  --nf-type-scale: 1.0;
+
+  --nf-star-density: 1.0;
+  --nf-star-opacity: 0.30;
+
+  /* Derived (computed in JS, but defaults keep it readable) */
+  --nf-bg: #050505;
+  --nf-text-1: rgba(255,255,255,0.92);
+  --nf-text-2: rgba(255,255,255,0.55);
+  --nf-text-3: rgba(255,255,255,0.20);
+  --nf-card-bg: rgba(255,255,255,var(--nf-card-alpha));
+  --nf-card-border: rgba(255,255,255,var(--nf-card-border-alpha));
+}
+
+html, body {
+  background: var(--nf-bg);
+  color: var(--nf-text-1);
+  font-family: 'Inter', sans-serif;
+  height: 100%;
+}
+
+body{
+  margin:0;
+  overflow:hidden;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+/* A soft mist layer */
+body::before{
+  content:"";
+  position: fixed;
+  inset:0;
+  pointer-events:none;
+  background: radial-gradient(circle at 35% 20%, rgba(255,255,255,calc(var(--nf-mist)*0.35)) 0%, rgba(0,0,0,0) 60%),
+              radial-gradient(circle at 70% 65%, rgba(255,255,255,calc(var(--nf-mist)*0.25)) 0%, rgba(0,0,0,0) 55%);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+/* A gentle grain */
+body::after{
+  content:"";
+  position: fixed;
+  inset:-20%;
+  pointer-events:none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+  opacity: calc(var(--nf-grain) * 0.6);
+  transform: rotate(10deg);
+  mix-blend-mode: overlay;
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+.no-scrollbar::-webkit-scrollbar { display:none; }
+
+/* Nightfall image grade */
+.nf-grade{
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  filter: saturate(calc(0.6 + var(--nf-saturation)))
+          contrast(calc(0.9 + var(--nf-contrast) * 0.25))
+          brightness(calc(0.7 + var(--nf-ink) * 0.2));
+}
+.nf-grade::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.12), transparent 55%),
+              radial-gradient(circle at 70% 70%, rgba(255,255,255,0.08), transparent 50%);
+  opacity: 0.6;
+  mix-blend-mode: screen;
+  pointer-events:none;
+}
+.nf-grade::after{
+  content:"";
+  position:absolute;
+  inset:-15%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  pointer-events:none;
+}
+
+.nf-fragment{
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: 0 12px 35px rgba(0,0,0,0.45);
+}
+
+.nf-stamp{
+  border: 1px dashed rgba(255,255,255,0.22);
+  filter: saturate(0.45) contrast(1.2);
+}
+
+.nf-texture{
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.nf-focus-texture{
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 160% at 50% 20%, rgba(255,255,255,0.08), transparent 60%),
+    radial-gradient(140% 120% at 50% 80%, rgba(255,255,255,0.06), transparent 55%);
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "选个chill的地方"
+  short_description: "一屏候选与定稿页，快速选个能坐得住、可达、不尴尬的去处"
+  default_prompt: "用 $chill-place-picker 给我选个chill的地方。"

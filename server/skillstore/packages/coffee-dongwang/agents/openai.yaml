@@ -1,0 +1,3 @@
+interface:
+  display_name: "咖啡懂王"
+  short_description: "按频段做咖啡场景推荐，输出候选页与定稿页含点单/坐法/时长/Plan B"

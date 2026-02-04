@@ -1,0 +1,7 @@
+{
+  "name": "Nightfall Orchestrator",
+  "description": "A nighttime stage orchestration system that curates the perfect city ending based on your current state and environment.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

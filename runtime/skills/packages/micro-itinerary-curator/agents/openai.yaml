@@ -1,0 +1,4 @@
+interface:
+  display_name: "走一圈也算旅行"
+  short_description: "微行程策展：把想出去一下压缩成可完成的时间块旅行体验"
+  default_prompt: "用 $micro-itinerary-curator 生成“走一圈也算旅行”的候选页，并在选中后输出定稿页。"

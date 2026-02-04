@@ -1,0 +1,4 @@
+interface:
+  display_name: "One Museum, One City"
+  short_description: "Plan a half-day, single-museum exhibit sprint"
+  default_prompt: "Use $plan-museum-sprint to turn one museum visit into a half-day plan with a backup option."

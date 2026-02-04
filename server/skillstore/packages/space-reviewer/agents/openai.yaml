@@ -1,0 +1,4 @@
+interface:
+  display_name: "空间评审"
+  short_description: "输出三组空间候选与评审定稿，覆盖可用性、质地与置信度"
+  default_prompt: "Use $space-reviewer to生成空间候选页与评审定稿页（硬条件+软质地+Plan B）。"
