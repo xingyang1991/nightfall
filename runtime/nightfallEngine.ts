@@ -1,4 +1,5 @@
 import type { ContextSignals, CandidateItem } from '../types';
+import { getImagesForCandidates, getCoverImage } from '../services/unsplash';
 import type { A2UIAction, A2UIMessage } from '../a2ui/messages';
 import {
   programTonightOrder,
@@ -153,7 +154,8 @@ export class NightfallEngine {
         if (res.ui) effects.push({ type: 'style_hint', hint: res.ui });
 
         if (res.bundle) {
-          this.ensureMediaPack(res.bundle, skillId);
+          // 使用 Unsplash API 获取真实封面图片
+          await this.ensureMediaPackAsync(res.bundle, skillId);
           this.session.lastBundle = res.bundle;
           messages.push(...programTonightResult(context, res.bundle));
         } else if (res.patches) {
@@ -424,7 +426,8 @@ export class NightfallEngine {
       if (res.ui) effects.push({ type: 'style_hint', hint: res.ui });
 
       const candidates: CandidateItem[] = Array.isArray(res.candidates) ? res.candidates : [];
-      const withImages = this.attachCandidateImages(skillId, candidates);
+      // 使用 Unsplash API 获取真实图片
+      const withImages = await this.attachCandidateImagesAsync(skillId, candidates);
       if (candidates.length) {
         this.session.lastCandidates = withImages;
         return programTonightCandidates(context, {
@@ -446,7 +449,8 @@ export class NightfallEngine {
     if (res.ui) effects.push({ type: 'style_hint', hint: res.ui });
 
     if (res.bundle) {
-      this.ensureMediaPack(res.bundle, skillId);
+      // 使用 Unsplash API 获取真实封面图片
+      await this.ensureMediaPackAsync(res.bundle, skillId);
       this.session.lastBundle = res.bundle;
       // Enrich bundle with external navigation deep links and a minimal “last 300m” glance.
       await this.enrichNav(res.bundle, context);
@@ -608,6 +612,121 @@ export class NightfallEngine {
         bundle.media_pack.gallery_refs = [];
       }
     }
+    return bundle;
+  }
+
+  /**
+   * 异步版本：为候选池中的每个地点获取 Unsplash 图片
+   */
+  private async attachCandidateImagesAsync(skillId: string, candidates: CandidateItem[]): Promise<CandidateItem[]> {
+    // 先尝试使用 Google Places 图片（如果可用）
+    const placeResults = Array.isArray(this.session.lastPlaces) ? this.session.lastPlaces : [];
+    const placePhotos = placeResults
+      .map((p: any) => ({ title: String(p.title ?? ''), photo_ref: String(p.photo_ref ?? ''), photo_url: String(p.photo_url ?? '') }))
+      .filter((p: any) => p.photo_ref || p.photo_url);
+    const canUseGooglePhotos = hasPlacesPhotoKey() && placePhotos.length > 0;
+
+    if (canUseGooglePhotos) {
+      // 使用 Google Places 图片
+      return candidates.map((c, idx) => {
+        if (c.image_ref) return { ...c };
+        const match = matchPlacePhoto(c.title, placePhotos) ?? placePhotos[idx % placePhotos.length];
+        const ref = (match?.photo_url || match?.photo_ref) ?? '';
+        const image_ref = ref ? (ref.startsWith('nf://') ? ref : `nf://photo/${ref}`) : `nf://fragment/${skillId}/${c.id || idx}`;
+        return { ...c, image_ref };
+      });
+    }
+
+    // 使用 Unsplash API 获取真实图片
+    try {
+      console.log('[NightfallEngine] Fetching Unsplash images for candidates...');
+      const candidatesWithIds = candidates.map((c, idx) => ({
+        id: c.id || String(idx),
+        title: c.title,
+        image_ref: c.image_ref
+      }));
+      
+      const withImages = await getImagesForCandidates(candidatesWithIds);
+      
+      // 合并图片到原始候选项
+      return candidates.map((c, idx) => {
+        const matched = withImages.find(w => w.id === (c.id || String(idx)));
+        return {
+          ...c,
+          image_ref: matched?.image_ref || c.image_ref || `nf://fragment/${skillId}/${c.id || idx}`
+        };
+      });
+    } catch (error) {
+      console.error('[NightfallEngine] Failed to fetch Unsplash images:', error);
+      // Fallback 到程序生成的图片
+      return candidates.map((c, idx) => ({
+        ...c,
+        image_ref: c.image_ref || `nf://fragment/${skillId}/${c.id || idx}`
+      }));
+    }
+  }
+
+  /**
+   * 异步版本：为票据获取 Unsplash 封面图片
+   */
+  private async ensureMediaPackAsync(bundle: any, skillId: string) {
+    const seed = String(skillId || bundle?.primary_ending?.id || bundle?.primary_ending?.title || 'nightfall');
+    bundle.media_pack = bundle.media_pack ?? {};
+
+    // 先尝试使用 Google Places 图片
+    const placeResults = Array.isArray(this.session.lastPlaces) ? this.session.lastPlaces : [];
+    const placePhotos = placeResults
+      .map((p: any) => ({ photo_ref: String(p.photo_ref ?? ''), photo_url: String(p.photo_url ?? '') }))
+      .filter((p: any) => p.photo_ref || p.photo_url);
+    const canUseGooglePhotos = hasPlacesPhotoKey() && placePhotos.length > 0;
+
+    if (canUseGooglePhotos) {
+      // 使用原有逻辑
+      this.ensureMediaPack(bundle, skillId);
+      return bundle;
+    }
+
+    // 使用 Unsplash API 获取真实图片
+    try {
+      const title = String(bundle?.primary_ending?.title ?? '');
+      console.log(`[NightfallEngine] Fetching Unsplash cover image for: ${title}`);
+      
+      // 获取封面图片
+      if (!bundle.media_pack.cover_ref || bundle.media_pack.cover_ref.startsWith('nf://')) {
+        const coverUrl = await getCoverImage(title, seed);
+        bundle.media_pack.cover_ref = coverUrl;
+      }
+
+      // 获取 fragment 图片（可以使用不同的关键词）
+      if (!bundle.media_pack.fragment_ref || bundle.media_pack.fragment_ref.startsWith('nf://')) {
+        const planBTitle = String(bundle?.plan_b?.title ?? title);
+        const fragmentUrl = await getCoverImage(planBTitle, `${seed}_fragment`);
+        bundle.media_pack.fragment_ref = fragmentUrl;
+      }
+
+      // 保留程序生成的 stamp 和 texture
+      if (!bundle.media_pack.stamp_ref) bundle.media_pack.stamp_ref = `nf://stamp/${seed}`;
+      if (!bundle.media_pack.texture_ref) bundle.media_pack.texture_ref = `nf://texture/${seed}`;
+
+      // gallery_refs 使用候选池的图片
+      if (!bundle.media_pack.gallery_refs || !bundle.media_pack.gallery_refs.length) {
+        if (Array.isArray(this.session.lastCandidates)) {
+          bundle.media_pack.gallery_refs = this.session.lastCandidates
+            .map((c: any) => String(c.image_ref ?? '').trim())
+            .filter((ref: string) => ref && ref.startsWith('http'))
+            .slice(0, 6);
+        } else {
+          bundle.media_pack.gallery_refs = [];
+        }
+      }
+
+      console.log('[NightfallEngine] Media pack updated with Unsplash images');
+    } catch (error) {
+      console.error('[NightfallEngine] Failed to fetch Unsplash cover image:', error);
+      // Fallback 到原有逻辑
+      this.ensureMediaPack(bundle, skillId);
+    }
+
     return bundle;
   }
 
