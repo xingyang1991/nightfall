@@ -317,9 +317,10 @@ export async function getCuratedEnding(userInput: string, context: ContextSignal
   const timeContext = currentHour >= 22 || currentHour < 6 ? '深夜' : currentHour >= 18 ? '傍晚' : '白天';
   
   const prompt = `
-ACT AS: A night-shift urban curator in Shanghai with deep local knowledge.
-TONE: "Gallery Label" style. Minimalist, evocative, short sentences.
-LOCATION: Strictly use Shanghai context (Xuhui, Jing'an, Bund, Pudong, Changning, etc.).
+ACT AS: 一位深夜城市策展人，对上海了如指掌。
+TONE: "策展标签"风格。简约、富有画面感、短句为主。
+LOCATION: 严格使用上海地名（徐汇、静安、外滩、浦东、长宁等）。
+LANGUAGE: 所有输出必须使用中文，包括标题、描述、清单、风险提示等。
 
 USER INPUT: ${JSON.stringify(userInput)}
 CONTEXT SIGNALS: ${JSON.stringify(context)}
@@ -333,21 +334,21 @@ DIVERSITY REQUIREMENT (CRITICAL):
 - Here are some suggested places to consider (but feel free to recommend others):
 ${suggestedPlaces.map(p => `  - ${p.name} (${p.district}): ${p.address}`).join('\n')}
 
-GOAL: Generate a CuratorialBundle for tonight's city ending.
+GOAL: 为今晚生成一个城市结局方案。
 CONSTRAINTS:
-- Primary checklist: max 5.
-- Risk flags: max 2.
-- Ambient tokens: max 3.
-- Reason: 1-2 sentences.
-- "Delivery is exit": Provide a single clear outcome.
-- Plan B must be a DIFFERENT location from primary (more conservative, longer hours, or quieter).
-- IMPORTANT: For NAVIGATE or START_ROUTE actions, you MUST provide a real Shanghai location with:
-  - lat: latitude (31.0-31.5 range for Shanghai)
-  - lng: longitude (121.0-122.0 range for Shanghai)
-  - name: place name in Chinese
-  - address: full address in Chinese
-- Use real, well-known Shanghai locations (cafes, hotels, parks, bookstores, coworking spaces, etc.)
-- VARY your recommendations based on the random seed - do not always suggest the same places!
+- 主要清单: 最多5条，使用中文
+- 风险提示: 最多2条，使用中文短语（如"停车不确定"、"可能报队"、"噪音波动"）
+- 氛围标签: 最多3个
+- 理由: 1-2句中文
+- "交付即出口": 提供一个清晰的结果
+- Plan B 必须是与主要选项不同的地点（更保守、营业时间更长、或更安静）
+- 重要: 对于 NAVIGATE 或 START_ROUTE 操作，必须提供真实的上海地点:
+  - lat: 纬度 (31.0-31.5 范围)
+  - lng: 经度 (121.0-122.0 范围)
+  - name: 中文地点名称
+  - address: 中文完整地址
+- 使用真实、知名的上海地点（咖啡馆、酒店、公园、书店、联合办公空间等）
+- 根据随机种子变化推荐 - 不要总是推荐相同的地点！
 
 EXAMPLE OUTPUT (for format reference only - DO NOT copy these exact places):
 {
@@ -385,7 +386,7 @@ EXAMPLE OUTPUT (for format reference only - DO NOT copy these exact places):
   "ambient_tokens": ["mist", "warm", "steady"]
 }
 
-OUTPUT: JSON only, following the exact structure shown in the example. Remember to use DIFFERENT places based on the random seed!
+OUTPUT: 仅输出 JSON，遵循示例结构。记住根据随机种子使用不同的地点！所有文本内容必须使用中文！
 `.trim();
 
   return runGeminiJSON<CuratorialBundle>(prompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(userInput));
@@ -448,21 +449,23 @@ export async function generateCandidatePoolWithGemini(prompt: string): Promise<{
   const enhancedPrompt = prompt + `
 
 DIVERSITY REQUIREMENT:
-- Random seed: ${randomSeed}
-- Generate DIFFERENT candidates each time
-- Vary the types of recommendations (cafes, hotels, parks, bookstores, walking routes, etc.)
+- 随机种子: ${randomSeed}
+- 每次生成不同的候选
+- 变化推荐类型（咖啡馆、酒店、公园、书店、步行路线等）
 
-EXAMPLE OUTPUT (format reference only):
+LANGUAGE: 所有输出必须使用中文，包括标题、描述等。
+
+EXAMPLE OUTPUT (仅供格式参考):
 {
   "candidate_pool": [
-    { "id": "A", "title": "安静的角落", "tag": "LOW RISK", "desc": "少交谈，坐下来，呼吸，恢复状态。" },
-    { "id": "B", "title": "短途散步路线", "tag": "MICRO ROUTE", "desc": "20-35分钟，路灯安全，容易退出。" },
-    { "id": "C", "title": "温暖的夜饮", "tag": "WARM", "desc": "一杯饮品，一张桌子，无需表演。" }
+    { "id": "A", "title": "安静的角落", "tag": "最稳", "desc": "少交谈，坐下来，呼吸，恢复状态。" },
+    { "id": "B", "title": "短途散步路线", "tag": "微路线", "desc": "20-35分钟，路灯安全，容易退出。" },
+    { "id": "C", "title": "温暖的夜饮", "tag": "温暖", "desc": "一杯饮品，一张桌子，无需表演。" }
   ],
   "ui": { "infoDensity": 0.28, "uiModeHint": "explore", "toneTags": ["minimal"] }
 }
 
-OUTPUT: JSON only.
+OUTPUT: 仅输出 JSON，所有文本必须使用中文。
 `;
   return runGeminiJSON<{ candidate_pool: CandidateItem[]; ui?: any }>(enhancedPrompt, CANDIDATE_POOL_SCHEMA, () => stubCandidates());
 }
@@ -474,19 +477,19 @@ function stubCandidates(): { candidate_pool: CandidateItem[]; ui?: any } {
   // 随机化 stub 数据
   const candidateOptions = [
     [
-      { id: 'A', title: '安静的角落', tag: 'LOW RISK', desc: '少交谈，坐下来，呼吸，恢复状态。' },
-      { id: 'B', title: '短途散步路线', tag: 'MICRO ROUTE', desc: '20-35分钟，路灯安全，容易退出。' },
-      { id: 'C', title: '温暖的夜饮', tag: 'WARM', desc: '一杯饮品，一张桌子，无需表演。' }
+      { id: 'A', title: '安静的角落', tag: '最稳', desc: '少交谈，坐下来，呼吸，恢复状态。' },
+      { id: 'B', title: '短途散步路线', tag: '微路线', desc: '20-35分钟，路灯安全，容易退出。' },
+      { id: 'C', title: '温暖的夜饮', tag: '温暖', desc: '一杯饮品，一张桌子，无需表演。' }
     ],
     [
-      { id: 'A', title: '深夜书店', tag: 'QUIET', desc: '书架之间，时间变慢。' },
-      { id: 'B', title: '江边漫步', tag: 'OUTDOOR', desc: '外滩灯光，清风徐来。' },
-      { id: 'C', title: '酒店大堂', tag: 'SAFE', desc: '24小时营业，无需解释。' }
+      { id: 'A', title: '深夜书店', tag: '安静', desc: '书架之间，时间变慢。' },
+      { id: 'B', title: '江边漫步', tag: '户外', desc: '外滩灯光，清风徐来。' },
+      { id: 'C', title: '酒店大堂', tag: '安全', desc: '24小时营业，无需解释。' }
     ],
     [
-      { id: 'A', title: '独立咖啡馆', tag: 'COZY', desc: '手冲咖啡，木质桌椅。' },
-      { id: 'B', title: '公园长椅', tag: 'FREE', desc: '星空下，思绪飘远。' },
-      { id: 'C', title: '联合办公空间', tag: 'FOCUS', desc: '安静工作，专注当下。' }
+      { id: 'A', title: '独立咖啡馆', tag: '温馨', desc: '手冲咖啡，木质桌椅。' },
+      { id: 'B', title: '公园长椅', tag: '免费', desc: '星空下，思绪飘远。' },
+      { id: 'C', title: '联合办公空间', tag: '专注', desc: '安静工作，专注当下。' }
     ]
   ];
   

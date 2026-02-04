@@ -595,7 +595,7 @@ function CandidateShelf({ model, props, onAction }: { model: any; props: any; on
   const showImages = items.some((it) => Boolean(it?.image_ref));
 
   if (!items.length) {
-    return <EmptyState title="No candidates yet" subtitle="Try another prompt" />;
+    return <EmptyState title="还没有候选" subtitle="试试其他描述" />;
   }
 
   if (showImages) {
@@ -604,7 +604,7 @@ function CandidateShelf({ model, props, onAction }: { model: any; props: any; on
       <div className="w-full max-w-xl mx-auto">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {trimmed.map((it, idx) => {
-            const title = it.title ?? 'Untitled';
+            const title = it.title ?? '未命名';
             const tag = it.tag ?? 'EDITION';
             const desc = it.desc ?? '';
             return (
@@ -672,15 +672,15 @@ function WhisperWall({ model, props, onAction }: { model: any; props: any; onAct
     <div className="w-full bg-black/50 border border-white/10 rounded-[2.5rem] overflow-hidden backdrop-blur-3xl shadow-2xl">
       <div className="p-7 border-b border-white/5 flex justify-between items-center">
         <div className="space-y-1">
-          <h2 className="text-3xl font-light italic text-white/90">Hallway</h2>
-          <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">Anonymous residue</p>
+          <h2 className="text-3xl font-light italic text-white/90">走廊</h2>
+          <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">匿名的痕迹</p>
         </div>
         <Sparkles size={14} className="text-white/15" />
       </div>
 
       <div className="p-7 grid grid-cols-1 gap-3 max-h-[60vh] overflow-y-auto no-scrollbar">
         {notes.length === 0 ? (
-          <EmptyState title="No whispers yet" subtitle="Leave a trace below" />
+          <EmptyState title="还没有人说话" subtitle="在下方留下你的痕迹" />
         ) : (
           notes.map((n, idx) => (
             <div key={idx} className="relative p-5 rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
@@ -726,7 +726,7 @@ function WhisperComposer({ model, props, onAction }: { model: any; props: any; o
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Leave a trace..."
+          placeholder="留下一句话..."
           className="flex-1 bg-white/[0.04] border border-white/10 rounded-2xl py-4 px-5 text-white placeholder-white/10 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all font-light text-sm"
         />
         <button
@@ -761,17 +761,17 @@ function PocketPanel({ model, props, onAction }: { model: any; props: any; onAct
   return (
     <div className="w-full max-w-xl mx-auto space-y-8">
       <div className="text-center space-y-2 pt-6">
-        <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">Pocket</h1>
-        <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">Your quiet archive</p>
+        <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">口袋</h1>
+        <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">你的安静档案</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={() => onAction('OPEN_VEIL')} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">Veil</button>
-        <button onClick={() => onAction('OPEN_FOOTPRINTS')} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">Footprints</button>
+        <button onClick={() => onAction('OPEN_VEIL')} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">幕布</button>
+        <button onClick={() => onAction('OPEN_FOOTPRINTS')} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">足迹</button>
       </div>
 
       <div className="p-7 bg-white/[0.03] border border-white/5 rounded-[2.5rem] backdrop-blur-2xl">
-        <span className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 block mb-4">Rhythm</span>
+        <span className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 block mb-4">节奏</span>
         <div className="flex items-end justify-between gap-1 h-24">
           {pulse.slice(0, 14).map((v, i) => (
             <div key={i} className="w-full bg-white/10 rounded-full" style={{ height: `${Math.max(6, v * 90)}px` }} />
@@ -780,10 +780,10 @@ function PocketPanel({ model, props, onAction }: { model: any; props: any; onAct
       </div>
 
       <div className="space-y-3">
-        <span className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 block">Tickets</span>
+        <span className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 block">票根</span>
         <div className="grid grid-cols-1 gap-3">
           {items.length === 0 ? (
-            <EmptyState title="No tickets yet" subtitle="Save a ticket from Tonight" />
+            <EmptyState title="还没有票根" subtitle="从“今晚”保存一张" />
           ) : (
             items.slice(0, 12).map((t, i) => {
               const imageRef = t.image_ref ?? t.cover_ref ?? '';
@@ -939,19 +939,19 @@ function SkyStats({ model, props, onAction }: { model: any; props: any; onAction
       ) : null}
       <div className="text-center space-y-12 animate-in fade-in duration-1000 w-full max-w-xs">
         <div className="space-y-1">
-          <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">Atmosphere</h1>
+          <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">氛围</h1>
           <p className="text-[10px] mono text-white/20 tracking-[0.4em] uppercase">Node {gridId}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2rem] backdrop-blur-md">
             <Activity size={16} className="text-emerald-500/40 mb-3 mx-auto" />
-            <span className="text-[10px] mono text-white/20 block mb-1 uppercase tracking-widest">Pressure</span>
+            <span className="text-[10px] mono text-white/20 block mb-1 uppercase tracking-widest">压力</span>
             <span className="text-lg font-light text-white/80">{pressure}</span>
           </div>
           <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2rem] backdrop-blur-md">
             <UserIcon size={16} className="text-white/20 mb-3 mx-auto" />
-            <span className="text-[10px] mono text-white/20 block mb-1 uppercase tracking-widest">Ambient</span>
+            <span className="text-[10px] mono text-white/20 block mb-1 uppercase tracking-widest">在线</span>
             <span className="text-lg font-light text-white/80">{ambient}</span>
           </div>
         </div>
@@ -962,13 +962,13 @@ function SkyStats({ model, props, onAction }: { model: any; props: any; onAction
             disabled={stealth}
             className={`w-full py-4 rounded-full bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-[0.4em] transition-all shadow-xl ${stealth ? 'text-white/10 cursor-not-allowed' : 'text-white/30 hover:text-white'}`}
           >
-            Light On
+            点亮
           </button>
           <button
             onClick={() => onAction('OPEN_WHISPERS')}
             className="w-full py-4 rounded-full bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-[0.4em] text-white/30 hover:text-white transition-all shadow-xl"
           >
-            Entrance
+            入口
           </button>
         </div>
       </div>
@@ -984,8 +984,8 @@ function VeilCollagePanel({ model, props, onAction }: { model: any; props: any; 
   return (
     <div className="w-full max-w-xl mx-auto space-y-8 pt-8">
       <div className="text-center space-y-2">
-        <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">Veil</h1>
-        <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">Moon screensaver</p>
+        <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">幕布</h1>
+        <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">月光屏保</p>
       </div>
       <div className="rounded-[2.5rem] border border-white/10 bg-white/[0.02] backdrop-blur-2xl overflow-hidden">
         <div className="aspect-[16/10] w-full relative overflow-hidden">
@@ -999,13 +999,13 @@ function VeilCollagePanel({ model, props, onAction }: { model: any; props: any; 
         <div className="px-7 py-6 border-t border-white/5">
           <div className="text-white/40 text-[11px] font-light italic">{caption}</div>
           <div className="mt-4 grid grid-cols-3 gap-2">
-            <button onClick={() => onAction('VEIL_FEEDBACK', { vote: 'like' })} className="py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">Like</button>
-            <button onClick={() => onAction('VEIL_FEEDBACK', { vote: 'dislike' })} className="py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">No</button>
-            <button onClick={() => onAction('SAVE_VEIL_FRAME', { collage_id: collage.collage_id })} className="py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">Pocket</button>
+            <button onClick={() => onAction('VEIL_FEEDBACK', { vote: 'like' })} className="py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">喜欢</button>
+            <button onClick={() => onAction('VEIL_FEEDBACK', { vote: 'dislike' })} className="py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">不要</button>
+            <button onClick={() => onAction('SAVE_VEIL_FRAME', { collage_id: collage.collage_id })} className="py-3 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">收藏</button>
           </div>
         </div>
       </div>
-      <button onClick={() => onAction('BACK_TO_POCKET')} className="w-full py-4 rounded-full bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-[0.4em] text-white/30 hover:text-white transition-all">← Back</button>
+      <button onClick={() => onAction('BACK_TO_POCKET')} className="w-full py-4 rounded-full bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-[0.4em] text-white/30 hover:text-white transition-all">← 返回</button>
     </div>
   );
 }
@@ -1026,26 +1026,26 @@ function FootprintsPanel({ model, props, onAction }: { model: any; props: any; o
   return (
     <div className="w-full max-w-xl mx-auto space-y-8 pt-8">
       <div className="text-center space-y-2">
-        <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">Footprints</h1>
-        <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">No ranks. Just echoes.</p>
+        <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">足迹</h1>
+        <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">不排名，只回响</p>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2rem]">
-          <div className="text-[10px] mono uppercase tracking-widest text-white/15">Focus</div>
+          <div className="text-[10px] mono uppercase tracking-widest text-white/15">专注</div>
           <div className="text-2xl font-light italic text-white/80 mt-2">{summary.focus_min ?? 0} min</div>
         </div>
         <div className="p-6 bg-white/[0.03] border border-white/5 rounded-[2rem]">
-          <div className="text-[10px] mono uppercase tracking-widest text-white/15">Lights</div>
+          <div className="text-[10px] mono uppercase tracking-widest text-white/15">点亮</div>
           <div className="text-2xl font-light italic text-white/80 mt-2">{summary.lights ?? 0}</div>
         </div>
       </div>
       <div className="p-7 bg-white/[0.02] border border-white/5 rounded-[2.5rem]">
-        <div className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 mb-3">Weekly Echo</div>
+        <div className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 mb-3">本周回响</div>
         <div className="text-white/40 text-[11px] font-light italic leading-relaxed whitespace-pre-line">{weekly}</div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={() => onAction('EXPORT_POCKET', { range: 'weekly' })} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">Archive</button>
-        <button onClick={() => onAction('BACK_TO_POCKET')} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">Back</button>
+        <button onClick={() => onAction('EXPORT_POCKET', { range: 'weekly' })} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">归档</button>
+        <button onClick={() => onAction('BACK_TO_POCKET')} className="py-4 rounded-2xl bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-widest text-white/30 hover:text-white transition">返回</button>
       </div>
     </div>
   );

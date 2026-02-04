@@ -37,11 +37,12 @@ export function programTonightOrder(context: ContextSignals): A2UIMessage[] {
         components: [
           { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-12', children: { explicitList: ['titleBlock', 'orderCard'] } } } },
           { id: 'titleBlock', component: { Box: { className: 'w-full max-w-sm mx-auto p-0', children: { explicitList: ['title', 'subtitle'] } } } },
-          { id: 'title', component: { Text: { text: { literalString: "Tonight's End" }, usageHint: 'h1' } } },
-          { id: 'subtitle', component: { Text: { text: { literalString: 'One request to exit' }, usageHint: 'subtitle', className: 'pl-1' } } },
+          { id: 'title', component: { Text: { text: { literalString: '今晚的结局' }, usageHint: 'h1' } } },
+          { id: 'subtitle', component: { Text: { text: { literalString: '告诉我你想要什么' }, usageHint: 'subtitle', className: 'pl-1' } } },
 
-          { id: 'orderCard', component: { Card: { variant: 'glass', rounded: 'rounded-[2.5rem]', pad: 'p-9', children: { explicitList: ['prompt'] } } } },
-          { id: 'prompt', component: { PromptBar: { placeholder: 'I need a quiet place...', submitAction: { name: 'TONIGHT_SUBMIT_ORDER' } } } },
+          { id: 'orderCard', component: { Card: { variant: 'glass', rounded: 'rounded-[2.5rem]', pad: 'p-9', children: { explicitList: ['stepHint', 'prompt'] } } } },
+          { id: 'stepHint', component: { Text: { text: { literalString: '第一步：描述你的需求' }, usageHint: 'label', className: 'mb-4 text-white/30' } } },
+          { id: 'prompt', component: { PromptBar: { placeholder: '例如：找个安静的地方工作...', submitAction: { name: 'TONIGHT_SUBMIT_ORDER' } } } },
         ]
       }
     },
@@ -60,7 +61,7 @@ export function programTonightOrder(context: ContextSignals): A2UIMessage[] {
 }
 
 export function programTonightClarify(context: ContextSignals, orderText: string, choices?: string[]): A2UIMessage[] {
-  const fallbackChoices = ['A solitary walk', 'A silent sanctuary', 'Collective noise'];
+  const fallbackChoices = ['安静独处', '轻松社交', '专注工作'];
   const finalChoices = Array.isArray(choices) && choices.length ? choices : fallbackChoices;
   return [
     {
@@ -69,12 +70,13 @@ export function programTonightClarify(context: ContextSignals, orderText: string
         components: [
           { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-12', children: { explicitList: ['clarifyCard'] } } } },
 
-          { id: 'clarifyCard', component: { Card: { variant: 'glass', rounded: 'rounded-[2.5rem]', pad: 'p-7', children: { explicitList: ['clarifyHead', 'clarifyTitle', 'choiceList', 'backBtn'] } } } },
+          { id: 'clarifyCard', component: { Card: { variant: 'glass', rounded: 'rounded-[2.5rem]', pad: 'p-7', children: { explicitList: ['clarifyHead', 'clarifyTitle', 'stepHint', 'choiceList', 'backBtn'] } } } },
           { id: 'clarifyHead', component: { Row: { children: { explicitList: ['clarifyBadge'] }, justify: 'justify-start', gap: 'gap-2' } } },
-          { id: 'clarifyBadge', component: { Text: { text: { literalString: 'Clarifying' }, usageHint: 'label', className: 'flex items-center gap-2' } } },
-          { id: 'clarifyTitle', component: { Text: { text: { literalString: '"How should the city meet you tonight?"' }, usageHint: 'h2', className: 'mt-6' } } },
+          { id: 'clarifyBadge', component: { Text: { text: { literalString: '需要确认' }, usageHint: 'label', className: 'flex items-center gap-2' } } },
+          { id: 'clarifyTitle', component: { Text: { text: { literalString: '"今晚你更想要哪种感觉？"' }, usageHint: 'h2', className: 'mt-6' } } },
+          { id: 'stepHint', component: { Text: { text: { literalString: '第二步：选择一个方向，帮我更好地理解你' }, usageHint: 'label', className: 'mt-2 mb-4 text-white/30' } } },
           { id: 'choiceList', component: { ChoiceList: { itemsPath: '/tonight/choices', chooseActionName: 'TONIGHT_SELECT_CHOICE', loadingPath: '/ui/loading' } } },
-          { id: 'backBtn', component: { Button: { label: { literalString: '← Adjust Order' }, variant: 'ghost', action: { name: 'TONIGHT_BACK_TO_ORDER' } } } },
+          { id: 'backBtn', component: { Button: { label: { literalString: '← 重新描述' }, variant: 'ghost', action: { name: 'TONIGHT_BACK_TO_ORDER' } } } },
         ]
       }
     },
@@ -103,12 +105,13 @@ export function programTonightCandidates(
       surfaceUpdate: {
         surfaceId: 'tonight',
         components: [
-          { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-10', children: { explicitList: ['head', 'shelf', 'actions'] } } } },
+          { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-10', children: { explicitList: ['head', 'stepHint', 'shelf', 'actions'] } } } },
 
-          { id: 'head', component: { Box: { className: 'w-full max-w-xl mx-auto text-left space-y-2 pt-6 pb-4', children: { explicitList: ['title', 'subtitle'] } } } },
-          { id: 'title', component: { Text: { text: { literalString: skillTitle || 'Candidates' }, usageHint: 'h2' } } },
-          { id: 'subtitle', component: { Text: { text: { literalString: orderText ? `“${orderText}”` : 'Pick one to finalize' }, usageHint: 'subtitle', className: 'text-left' } } },
+          { id: 'head', component: { Box: { className: 'w-full max-w-xl mx-auto text-left space-y-2 pt-6 pb-2', children: { explicitList: ['title', 'subtitle'] } } } },
+          { id: 'title', component: { Text: { text: { literalString: skillTitle || '为你找到的选项' }, usageHint: 'h2' } } },
+          { id: 'subtitle', component: { Text: { text: { literalString: orderText ? `"${orderText}"` : '根据你的需求' }, usageHint: 'subtitle', className: 'text-left' } } },
 
+          { id: 'stepHint', component: { Text: { text: { literalString: '第三步：选择一个你感兴趣的选项' }, usageHint: 'label', className: 'w-full max-w-xl mx-auto text-left mb-4 text-white/30' } } },
           { id: 'shelf', component: { CandidateShelf: { itemsPath: '/candidate_pool', selectActionName: 'TONIGHT_SELECT_CANDIDATE' } } },
 
           { id: 'actions', component: { Row: { justify: 'justify-center', gap: 'gap-3', children: { explicitList: ['shuffleBtn', 'backBtn'] } } } },
@@ -138,9 +141,10 @@ export function programTonightResult(context: ContextSignals, bundle: Curatorial
       surfaceUpdate: {
         surfaceId: 'tonight',
         components: [
-          { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-12', children: { explicitList: ['ticket', 'rethinkBtn'] } } } },
+          { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-12', children: { explicitList: ['resultHint', 'ticket', 'rethinkBtn'] } } } },
+          { id: 'resultHint', component: { Text: { text: { literalString: '你的今晚结局' }, usageHint: 'label', className: 'mb-4 text-white/30' } } },
           { id: 'ticket', component: { NightfallTicket: { bundlePath: '/bundle', uiPath: '/ui' } } },
-          { id: 'rethinkBtn', component: { Button: { label: { literalString: '← Rethink Tonight' }, variant: 'ghost', action: { name: 'TONIGHT_RESET' } } } },
+          { id: 'rethinkBtn', component: { Button: { label: { literalString: '← 重新开始' }, variant: 'ghost', action: { name: 'TONIGHT_RESET' } } } },
         ]
       }
     },
@@ -167,10 +171,10 @@ export function programDiscover(context: ContextSignals, skills: Array<{ id: str
         components: [
           { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-10', children: { explicitList: ['head', 'hero', 'gallery', 'shelf'] } } } },
           { id: 'head', component: { Box: { className: 'text-center space-y-2 pt-6 pb-4', children: { explicitList: ['title', 'subtitle'] } } } },
-          { id: 'title', component: { Text: { text: { literalString: 'Discover' }, usageHint: 'h1' } } },
-          { id: 'subtitle', component: { Text: { text: { literalString: 'A shelf of scenes, not a feed' }, usageHint: 'subtitle' } } },
+          { id: 'title', component: { Text: { text: { literalString: '发现' }, usageHint: 'h1' } } },
+          { id: 'subtitle', component: { Text: { text: { literalString: '选择一个场景，开始今晚的探索' }, usageHint: 'subtitle' } } },
           { id: 'hero', component: { CoverHero: { itemPath: '/discover/hero', selectActionName: 'DISCOVER_SELECT_SKILL' } } },
-          { id: 'gallery', component: { GalleryWall: { itemsPath: '/discover/gallery_refs', label: 'Candidate Wall' } } },
+          { id: 'gallery', component: { GalleryWall: { itemsPath: '/discover/gallery_refs', label: '候选墙' } } },
           { id: 'shelf', component: { CandidateShelf: { itemsPath: '/discover/skills', selectActionName: 'DISCOVER_SELECT_SKILL', skipFirst: true } } },
         ]
       }
@@ -204,7 +208,7 @@ export function programSky(context: ContextSignals): A2UIMessage[] {
         surfaceId: 'sky',
         contents: [
           { key: 'context', value: plainToValue(context) },
-          { key: 'sky', value: vMap({ pressure: 'Moderate', ambient: '14 Active' }) }
+          { key: 'sky', value: vMap({ pressure: '适中', ambient: '14 人在线' }) }
         ]
       }
     },
@@ -215,9 +219,9 @@ export function programSky(context: ContextSignals): A2UIMessage[] {
 export function programPocket(context: ContextSignals): A2UIMessage[] {
   const pulse = Array.from({ length: 14 }, (_, i) => Math.max(0.15, Math.sin(i / 2) * 0.25 + 0.35));
   const tickets = [
-    { type: 'OUTCOME', date: 'Tonight', title: 'A quiet corner and one warm drink' },
-    { type: 'ROUTE', date: 'Last week', title: 'Two blocks of neon, then home' },
-    { type: 'NOTE', date: 'Archive', title: '“Less pressure, more clarity.”' },
+    { type: 'OUTCOME', date: '今晚', title: '一个安静的角落，一杯热饮' },
+    { type: 'ROUTE', date: '上周', title: '两条街的霓虹，然后回家' },
+    { type: 'NOTE', date: '存档', title: '"少一点压力，多一点清醒。"' },
   ];
   return [
     {
@@ -243,9 +247,9 @@ export function programPocket(context: ContextSignals): A2UIMessage[] {
 
 export function programWhispers(context: ContextSignals): A2UIMessage[] {
   const items = [
-    { symbol: '✶', timestamp: '22:14', content: 'Lights feel kinder after rain.' },
-    { symbol: '◌', timestamp: '22:31', content: 'Found a seat that doesn’t ask questions.' },
-    { symbol: '⟡', timestamp: '23:02', content: 'One page, one breath, and the night folds.' },
+    { symbol: '✶', timestamp: '22:14', content: '雨后的灯光格外温柔。' },
+    { symbol: '◌', timestamp: '22:31', content: '找到了一个不用解释的座位。' },
+    { symbol: '⟡', timestamp: '23:02', content: '一页书，一口气，夜晚就这样折叠了。' },
   ];
 
   return [
@@ -253,8 +257,8 @@ export function programWhispers(context: ContextSignals): A2UIMessage[] {
       surfaceUpdate: {
         surfaceId: 'whispers',
         components: [
-          { id: 'root', component: { Box: { className: 'w-full', children: { explicitList: ['wall', 'composer'] } } } },
-          { id: 'wall', component: { WhisperWall: { itemsPath: '/whispers/items' } } },
+          { id: 'root', component: { Box: { className: 'w-full max-w-xl mx-auto space-y-6 pt-8', children: { explicitList: ['wall', 'composer'] } } } },
+          { id: 'wall', component: { WhisperWall: { itemsPath: '/whispers/items', symbolPath: '/whispers/symbols' } } },
           { id: 'composer', component: { WhisperComposer: { submitActionName: 'WHISPER_SUBMIT' } } },
         ]
       }
@@ -263,7 +267,7 @@ export function programWhispers(context: ContextSignals): A2UIMessage[] {
       dataModelUpdate: {
         surfaceId: 'whispers',
         contents: [
-          { key: 'whispers', value: vMap({ items }) },
+          { key: 'whispers', value: vMap({ items, symbols: ['✶', '◌', '⟡', '◈', '◎', '▽', '◆'] }) },
           { key: 'context', value: plainToValue(context) }
         ]
       }
@@ -278,7 +282,7 @@ export function programRadio(context: ContextSignals): A2UIMessage[] {
       surfaceUpdate: {
         surfaceId: 'radio',
         components: [
-          { id: 'root', component: { RadioStrip: { narrativePath: '/radio/narrative', trackIdPath: '/radio/track_id', playingPath: '/radio/playing' } } },
+          { id: 'root', component: { RadioStrip: { narrativePath: '/radio/narrative', playingPath: '/radio/playing', trackIdPath: '/radio/track_id', coverPath: '/radio/cover_ref' } } },
         ]
       }
     },
@@ -286,7 +290,7 @@ export function programRadio(context: ContextSignals): A2UIMessage[] {
       dataModelUpdate: {
         surfaceId: 'radio',
         contents: [
-          { key: 'radio', value: vMap({ track_id: 'nf_001', narrative: 'A thin frequency: “You have time.”', playing: false, cover_ref: '' }) },
+          { key: 'radio', value: vMap({ narrative: '…', playing: false, track_id: '', cover_ref: '' }) },
           { key: 'context', value: plainToValue(context) }
         ]
       }
@@ -295,16 +299,13 @@ export function programRadio(context: ContextSignals): A2UIMessage[] {
   ];
 }
 
-
-// --- Veil (Screensaver) ---
 export function programVeil(context: ContextSignals): A2UIMessage[] {
-  const dateSeed = String(context.time?.now_ts ?? new Date().toISOString()).slice(0, 10);
   return [
     {
       surfaceUpdate: {
         surfaceId: 'veil',
         components: [
-          { id: 'root', component: { VeilCollagePanel: { collagePath: '/veil/collage', uiPath: '/ui' } } }
+          { id: 'root', component: { VeilCollagePanel: { collagePath: '/veil/collage' } } },
         ]
       }
     },
@@ -312,8 +313,7 @@ export function programVeil(context: ContextSignals): A2UIMessage[] {
       dataModelUpdate: {
         surfaceId: 'veil',
         contents: [
-          { key: 'ui', value: vMap({ stage: 'veil', loading: false }) },
-          { key: 'veil', value: vMap({ collage: { collage_id: `veil_${dateSeed}`, tiles: [], caption: 'Moon veil', cover_ref: `nf://cover/${dateSeed}` } }) },
+          { key: 'veil', value: vMap({ collage: { tiles: [], caption: '月光下的城市剪影', cover_ref: '', collage_id: 'veil_default' } }) },
           { key: 'context', value: plainToValue(context) }
         ]
       }
@@ -322,14 +322,13 @@ export function programVeil(context: ContextSignals): A2UIMessage[] {
   ];
 }
 
-// --- Footprints --- 
 export function programFootprints(context: ContextSignals): A2UIMessage[] {
   return [
     {
       surfaceUpdate: {
         surfaceId: 'footprints',
         components: [
-          { id: 'root', component: { FootprintsPanel: { fpPath: '/fp', uiPath: '/ui' } } }
+          { id: 'root', component: { FootprintsPanel: { fpPath: '/fp' } } },
         ]
       }
     },
@@ -337,11 +336,7 @@ export function programFootprints(context: ContextSignals): A2UIMessage[] {
       dataModelUpdate: {
         surfaceId: 'footprints',
         contents: [
-          { key: 'ui', value: vMap({ stage: 'footprints', loading: false }) },
-          { key: 'fp', value: vMap({
-            summary: { focus_min: 0, lights: 0, notes: 0, songs: 0 },
-            weekly_text: '本周回声：\n1) 你最稳的夜晚在周二/周四。\n2) 22:00以后更偏向电台与屏保。\n3) 这周你点了4次灯。\n建议：下周保留一个更早的收束点。'
-          }) },
+          { key: 'fp', value: vMap({ summary: { focus_min: 0, lights: 0, whispers: 0, places: 0 }, weekly_text: '这周还没有足迹...' }) },
           { key: 'context', value: plainToValue(context) }
         ]
       }

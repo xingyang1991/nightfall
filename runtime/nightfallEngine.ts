@@ -15,6 +15,7 @@ import {
   programFootprints
 } from '../a2ui/programs';
 import { SkillRuntime } from './skillRuntime';
+import { getSkillDescription, SKILL_DESCRIPTIONS } from './skills/skillDescriptions';
 import { getSkill, listSkills } from './skills/registry';
 import { routeSkillFromUtterance, type RouteResult } from './router/skillRouter';
 import { ToolBus } from './toolbus/toolBus';
@@ -910,14 +911,20 @@ export class NightfallEngine {
 function buildSkillShelfItems(): any[] {
   return listSkills()
     .filter((s) => s.manifest.id !== 'whispers_note')
-    .map((s) => ({
-      id: s.manifest.id,
-      tag: s.manifest.shelfTag ?? (s.manifest.uiHints?.uiModeHint ? String(s.manifest.uiHints.uiModeHint).toUpperCase() : 'SKILL'),
-      title: s.manifest.title,
-      desc: s.manifest.description,
-      prompt: s.manifest.defaultPrompt,
-      image_ref: `nf://cover/${s.manifest.id}`
-    }));
+    .map((s) => {
+      // 优先使用中文描述
+      const zhDesc = getSkillDescription(s.manifest.id);
+      return {
+        id: s.manifest.id,
+        tag: s.manifest.shelfTag ?? (s.manifest.uiHints?.uiModeHint ? String(s.manifest.uiHints.uiModeHint).toUpperCase() : 'SKILL'),
+        // 使用中文显示名称
+        title: zhDesc?.displayName || s.manifest.title,
+        // 使用中文功能描述
+        desc: zhDesc?.description || s.manifest.description,
+        prompt: s.manifest.defaultPrompt,
+        image_ref: `nf://cover/${s.manifest.id}`
+      };
+    });
 }
 
 function buildVeilCaption(context: ContextSignals, session: Record<string, any>) {
