@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { useA2UIRuntime } from './store';
 import { A2UIAction, A2UIComponent } from './messages';
 import { getByPath, resolveList, resolveNumber, resolveText } from './bindings';
-import { Bookmark, ChevronRight, Loader2, Navigation, Play, Lamp, Ticket, ArrowDown, Send, Sparkles, Activity, User as UserIcon } from 'lucide-react';
+import { Bookmark, ChevronRight, Loader2, Navigation, Play, Lamp, Ticket, ArrowDown, Send, Sparkles, Activity, User as UserIcon, MapPin, ExternalLink } from 'lucide-react';
+import { saveTicketToPocket, getPocketTickets, getFootprints, saveWhisper, getWhispers, recordPlaceVisit, StoredTicket } from './storage';
 
 /**
  * A2UIRenderer renders a single surface by surfaceId.
@@ -282,15 +283,77 @@ function NightfallTicket({ model, props, onAction }: { surfaceId: string; model:
   };
 
   const doPrimary = () => {
-    const action = data.action ?? primary.action;
-    onAction('EXECUTE_OUTCOME', { action, payload: data.payload ?? {} });
+    const actionData = data.action ?? primary.action;
+    const payload = data.payload ?? primary.payload ?? {};
+    
+    // 根据 action 类型执行不同操作
+    if (typeof actionData === 'object' && actionData !== null) {
+      const actionType = actionData.type ?? actionData;
+      const actionPayload = actionData.payload ?? payload;
+      
+      switch (actionType) {
+        case 'NAVIGATE': {
+          const { lat, lng, name, address } = actionPayload;
+          if (lat && lng) {
+            const query = name ? encodeURIComponent(name) : `${lat},${lng}`;
+            const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            window.open(url, '_blank');
+            recordPlaceVisit();
+          }
+          break;
+        }
+        case 'START_ROUTE': {
+          const { lat, lng, name } = actionPayload;
+          if (lat && lng) {
+            const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+            window.open(url, '_blank');
+            recordPlaceVisit();
+          }
+          break;
+        }
+        case 'PLAY': {
+          // 触发播放动作
+          onAction('RADIO_PLAY', { track_id: actionPayload.track_id });
+          break;
+        }
+        case 'START_FOCUS': {
+          onAction('ENTER_FOCUS_MODE', { duration: actionPayload.duration ?? 25 });
+          break;
+        }
+        default:
+          console.log('Executing action:', actionType, actionPayload);
+          onAction('EXECUTE_OUTCOME', { action: actionType, payload: actionPayload });
+      }
+    } else if (typeof actionData === 'string') {
+      // 字符串类型的 action
+      switch (actionData) {
+        case 'NAVIGATE': {
+          const { lat, lng, name } = payload;
+          if (lat && lng) {
+            const query = name ? encodeURIComponent(name) : `${lat},${lng}`;
+            const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+            window.open(url, '_blank');
+            recordPlaceVisit();
+          }
+          break;
+        }
+        default:
+          onAction('EXECUTE_OUTCOME', { action: actionData, payload });
+      }
+    }
   };
 
   const togglePlan = () => {
     onAction('SWITCH_PLAN', { plan: activePlan === 'primary' ? 'plan_b' : 'primary' });
   };
 
-  const save = () => onAction('SAVE_TICKET', { bundle });
+  const save = () => {
+    // 保存到 localStorage
+    const savedTicket = saveTicketToPocket(bundle);
+    console.log('Ticket saved:', savedTicket);
+    // 同时通知后端（如果需要）
+    onAction('SAVE_TICKET', { bundle, ticketId: savedTicket.id });
+  };
 
   return (
     <div className="w-full max-w-[320px] mx-auto animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-700">
@@ -561,8 +624,19 @@ function CandidateShelf({ model, props, onAction }: { model: any; props: any; on
 
 function WhisperWall({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
   const itemsPath = props?.itemsPath ?? '/whispers/items';
-  const notes: any[] = resolveList(model, itemsPath).slice(0, 24);
+  const modelNotes: any[] = resolveList(model, itemsPath);
   const symbolPath = props?.symbolPath ?? '/whispers/symbols';
+  
+  // 优先从 localStorage 读取，如果没有则使用 model 中的数据
+  const localWhispers = getWhispers();
+  const notes = localWhispers.length > 0 
+    ? localWhispers.map(w => ({
+        id: w.id,
+        symbol: w.symbol,
+        content: w.text,
+        timestamp: new Date(w.timestamp).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      }))
+    : modelNotes.slice(0, 24);
 
   return (
     <div className="w-full bg-black/50 border border-white/10 rounded-[2.5rem] overflow-hidden backdrop-blur-3xl shadow-2xl">
@@ -602,9 +676,17 @@ function WhisperComposer({ model, props, onAction }: { model: any; props: any; o
   const [text, setText] = React.useState('');
   const disabled = !text.trim();
 
+  const symbols = ['◇', '○', '△', '□', '◈', '◎', '▽', '◆'];
+  const randomSymbol = () => symbols[Math.floor(Math.random() * symbols.length)];
+
   const submit = () => {
     if (!text.trim()) return;
-    onAction(submitActionName, { content: text.trim() });
+    // 保存到 localStorage
+    const symbol = randomSymbol();
+    const savedWhisper = saveWhisper(text.trim(), symbol);
+    console.log('Whisper saved:', savedWhisper);
+    // 同时通知后端
+    onAction(submitActionName, { content: text.trim(), symbol, whisperId: savedWhisper.id });
     setText('');
   };
 
@@ -630,8 +712,21 @@ function WhisperComposer({ model, props, onAction }: { model: any; props: any; o
 }
 
 function PocketPanel({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
-  const items: any[] = resolveList(model, props?.ticketsPath ?? '/pocket/tickets');
+  const modelItems: any[] = resolveList(model, props?.ticketsPath ?? '/pocket/tickets');
   const pulse: number[] = resolveList(model, props?.pulsePath ?? '/pocket/pulse');
+  
+  // 优先从 localStorage 读取票根列表
+  const localTickets = getPocketTickets();
+  const items: any[] = localTickets.length > 0 
+    ? localTickets.map(t => ({
+        id: t.id,
+        title: t.title,
+        type: 'OUTCOME',
+        date: new Date(t.timestamp).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
+        image_ref: t.bundle?.media_pack?.cover_ref || t.bundle?.media_pack?.fragment_ref || '',
+        bundle: t.bundle
+      }))
+    : modelItems;
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-8">
@@ -806,9 +901,18 @@ function VeilCollagePanel({ model, props, onAction }: { model: any; props: any; 
 }
 
 function FootprintsPanel({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
-  const fp = getByPath(model, props?.fpPath ?? '/fp') ?? {};
-  const summary = fp.summary ?? {};
-  const weekly = fp.weekly_text ?? '';
+  const modelFp = getByPath(model, props?.fpPath ?? '/fp') ?? {};
+  const modelSummary = modelFp.summary ?? {};
+  const weekly = modelFp.weekly_text ?? '';
+  
+  // 优先从 localStorage 读取统计数据
+  const localFootprints = getFootprints();
+  const summary = {
+    focus_min: localFootprints.focusMinutes || modelSummary.focus_min || 0,
+    lights: localFootprints.ticketsGenerated || modelSummary.lights || 0,
+    whispers: localFootprints.whispersWritten || modelSummary.whispers || 0,
+    places: localFootprints.placesVisited || modelSummary.places || 0,
+  };
   return (
     <div className="w-full max-w-xl mx-auto space-y-8 pt-8">
       <div className="text-center space-y-2">
