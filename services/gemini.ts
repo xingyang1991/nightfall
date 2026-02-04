@@ -6,9 +6,72 @@ let ai: GoogleGenAI | null = null;
 let aiKey: string | null = null;
 let envLoaded = false;
 
-// ============ P0-2: 使用稳定的 Gemini 2.5 Flash-Lite 模型 ============
-// 使用稳定的 Gemini 1.5 Flash 模型（确保存在且稳定）
+// ============ 使用稳定的 Gemini 1.5 Flash 模型 ============
 const MODEL_NAME = 'gemini-1.5-flash';
+
+// ============ 上海真实地点数据库（用于多样性推荐）============
+const SHANGHAI_PLACES = {
+  cafes: [
+    { name: '% Arabica 武康路店', lat: 31.2104, lng: 121.4337, address: '上海市徐汇区武康路378号', district: '徐汇' },
+    { name: 'Manner Coffee 静安寺店', lat: 31.2234, lng: 121.4456, address: '上海市静安区南京西路1618号', district: '静安' },
+    { name: 'Seesaw Coffee 愚园路店', lat: 31.2201, lng: 121.4289, address: '上海市长宁区愚园路1107号', district: '长宁' },
+    { name: 'M Stand 新天地店', lat: 31.2189, lng: 121.4721, address: '上海市黄浦区太仓路181弄', district: '黄浦' },
+    { name: 'Peet\'s Coffee 外滩店', lat: 31.2397, lng: 121.4907, address: '上海市黄浦区中山东一路18号', district: '外滩' },
+    { name: '星巴克臻选烘焙工坊', lat: 31.2156, lng: 121.4612, address: '上海市静安区南京西路789号', district: '静安' },
+    { name: 'Blue Bottle Coffee 上海店', lat: 31.2278, lng: 121.4567, address: '上海市静安区铜仁路88号', district: '静安' },
+    { name: 'Costa Coffee 陆家嘴店', lat: 31.2363, lng: 121.5012, address: '上海市浦东新区世纪大道100号', district: '浦东' },
+    { name: 'Greybox Coffee 永嘉路店', lat: 31.2089, lng: 121.4512, address: '上海市徐汇区永嘉路570号', district: '徐汇' },
+    { name: 'Oatly 燕麦奶咖啡店', lat: 31.2145, lng: 121.4389, address: '上海市徐汇区乌鲁木齐中路318号', district: '徐汇' },
+  ],
+  hotels: [
+    { name: '静安香格里拉大酒店大堂', lat: 31.2297, lng: 121.4448, address: '上海市静安区延安中路1218号', district: '静安' },
+    { name: '外滩华尔道夫酒店大堂', lat: 31.2401, lng: 121.4912, address: '上海市黄浦区中山东一路2号', district: '外滩' },
+    { name: '上海半岛酒店大堂', lat: 31.2389, lng: 121.4923, address: '上海市黄浦区中山东一路32号', district: '外滩' },
+    { name: '上海浦东丽思卡尔顿酒店', lat: 31.2378, lng: 121.5034, address: '上海市浦东新区世纪大道8号', district: '浦东' },
+    { name: 'W酒店大堂吧', lat: 31.2312, lng: 121.4756, address: '上海市黄浦区中山东二路66号', district: '外滩' },
+    { name: '上海艾迪逊酒店大堂', lat: 31.2289, lng: 121.4734, address: '上海市黄浦区南京东路199号', district: '黄浦' },
+  ],
+  parks: [
+    { name: '复兴公园', lat: 31.2156, lng: 121.4678, address: '上海市黄浦区雁荡路105号', district: '黄浦' },
+    { name: '静安公园', lat: 31.2234, lng: 121.4512, address: '上海市静安区南京西路1649号', district: '静安' },
+    { name: '中山公园', lat: 31.2201, lng: 121.4123, address: '上海市长宁区长宁路780号', district: '长宁' },
+    { name: '外滩滨江步道', lat: 31.2378, lng: 121.4901, address: '上海市黄浦区中山东一路', district: '外滩' },
+    { name: '徐家汇公园', lat: 31.1934, lng: 121.4378, address: '上海市徐汇区肇嘉浜路889号', district: '徐汇' },
+  ],
+  bookstores: [
+    { name: '钟书阁 泰晤士小镇店', lat: 31.0789, lng: 121.2234, address: '上海市松江区三新北路900弄', district: '松江' },
+    { name: '言几又书店 长宁来福士店', lat: 31.2178, lng: 121.4234, address: '上海市长宁区长宁路1193号', district: '长宁' },
+    { name: '西西弗书店 静安大悦城店', lat: 31.2312, lng: 121.4567, address: '上海市静安区西藏北路166号', district: '静安' },
+    { name: '朵云书院 上海中心店', lat: 31.2356, lng: 121.5012, address: '上海市浦东新区银城中路501号', district: '浦东' },
+  ],
+  coworking: [
+    { name: 'WeWork 静安嘉里中心', lat: 31.2267, lng: 121.4489, address: '上海市静安区南京西路1515号', district: '静安' },
+    { name: '裸心社 外滩店', lat: 31.2378, lng: 121.4878, address: '上海市黄浦区圆明园路169号', district: '外滩' },
+    { name: 'SOHO 3Q 复兴广场', lat: 31.2134, lng: 121.4623, address: '上海市黄浦区淮海中路138号', district: '黄浦' },
+    { name: '氪空间 陆家嘴店', lat: 31.2345, lng: 121.4989, address: '上海市浦东新区东方路738号', district: '浦东' },
+  ]
+};
+
+// 生成随机种子
+function generateRandomSeed(): string {
+  return Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
+}
+
+// 随机选择地点类型
+function getRandomPlaceCategory(): string {
+  const categories = ['cafes', 'hotels', 'parks', 'bookstores', 'coworking'];
+  return categories[Math.floor(Math.random() * categories.length)];
+}
+
+// 随机选择多个地点
+function getRandomPlaces(count: number = 3): any[] {
+  const allPlaces: any[] = [];
+  Object.values(SHANGHAI_PLACES).forEach(places => allPlaces.push(...places));
+  
+  // 洗牌算法
+  const shuffled = [...allPlaces].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 function isNodeRuntime(): boolean {
   return typeof process !== 'undefined' && Boolean((process as any).versions?.node);
@@ -176,7 +239,7 @@ export const CANDIDATE_POOL_SCHEMA = {
   required: ['candidate_pool']
 };
 
-// ============ P0-1 & P0-3: 改进的 LLM 调用函数 ============
+// ============ 改进的 LLM 调用函数（带温度参数）============
 async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T): Promise<T> {
   const client = await getClient();
   if (!client) {
@@ -192,12 +255,14 @@ async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T):
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
-        responseSchema: schema
+        responseSchema: schema,
+        temperature: 0.9, // 增加温度以获得更多样化的输出
+        topP: 0.95,
+        topK: 40
       }
     });
     console.log('[Gemini] Response received successfully');
   } catch (error: any) {
-    // ============ P0-1: 暴露错误信息而非静默失败 ============
     console.error('[Gemini] API request failed:', error?.message || error);
     console.error('[Gemini] Full error:', JSON.stringify(error, null, 2));
     
@@ -208,7 +273,8 @@ async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T):
         model: MODEL_NAME,
         contents: prompt + '\n\nIMPORTANT: Return valid JSON only, no markdown formatting.',
         config: {
-          responseMimeType: 'application/json'
+          responseMimeType: 'application/json',
+          temperature: 0.9
         }
       });
       console.log('[Gemini] Retry succeeded');
@@ -234,9 +300,51 @@ async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T):
   }
 }
 
-// ============ P0-4: 优化的 Prompt 设计（带 one-shot 示例）============
-const ONE_SHOT_BUNDLE_EXAMPLE = `
-EXAMPLE OUTPUT:
+/**
+ * Tonight composer prompt with diversity support.
+ * Each request generates a unique random seed to ensure different recommendations.
+ */
+export async function getCuratedEnding(userInput: string, context: ContextSignals): Promise<CuratorialBundle> {
+  // 生成随机种子和推荐地点
+  const randomSeed = generateRandomSeed();
+  const suggestedPlaces = getRandomPlaces(5);
+  const currentHour = new Date().getHours();
+  const timeContext = currentHour >= 22 || currentHour < 6 ? '深夜' : currentHour >= 18 ? '傍晚' : '白天';
+  
+  const prompt = `
+ACT AS: A night-shift urban curator in Shanghai with deep local knowledge.
+TONE: "Gallery Label" style. Minimalist, evocative, short sentences.
+LOCATION: Strictly use Shanghai context (Xuhui, Jing'an, Bund, Pudong, Changning, etc.).
+
+USER INPUT: ${JSON.stringify(userInput)}
+CONTEXT SIGNALS: ${JSON.stringify(context)}
+TIME CONTEXT: ${timeContext}
+
+DIVERSITY REQUIREMENT (CRITICAL):
+- Random seed for this request: ${randomSeed}
+- You MUST generate DIFFERENT recommendations each time
+- DO NOT always recommend the same places
+- Consider the user's mood and the time of day
+- Here are some suggested places to consider (but feel free to recommend others):
+${suggestedPlaces.map(p => `  - ${p.name} (${p.district}): ${p.address}`).join('\n')}
+
+GOAL: Generate a CuratorialBundle for tonight's city ending.
+CONSTRAINTS:
+- Primary checklist: max 5.
+- Risk flags: max 2.
+- Ambient tokens: max 3.
+- Reason: 1-2 sentences.
+- "Delivery is exit": Provide a single clear outcome.
+- Plan B must be a DIFFERENT location from primary (more conservative, longer hours, or quieter).
+- IMPORTANT: For NAVIGATE or START_ROUTE actions, you MUST provide a real Shanghai location with:
+  - lat: latitude (31.0-31.5 range for Shanghai)
+  - lng: longitude (121.0-122.0 range for Shanghai)
+  - name: place name in Chinese
+  - address: full address in Chinese
+- Use real, well-known Shanghai locations (cafes, hotels, parks, bookstores, coworking spaces, etc.)
+- VARY your recommendations based on the random seed - do not always suggest the same places!
+
+EXAMPLE OUTPUT (for format reference only - DO NOT copy these exact places):
 {
   "primary_ending": {
     "id": "primary",
@@ -250,8 +358,8 @@ EXAMPLE OUTPUT:
     "payload": {
       "lat": 31.2304,
       "lng": 121.4737,
-      "name": "% Arabica 武康路店",
-      "address": "上海市徐汇区武康路378号"
+      "name": "某咖啡馆",
+      "address": "上海市某区某路某号"
     }
   },
   "plan_b": {
@@ -265,16 +373,81 @@ EXAMPLE OUTPUT:
     "payload": {
       "lat": 31.2397,
       "lng": 121.4748,
-      "name": "静安香格里拉大酒店大堂",
-      "address": "上海市静安区延安中路1218号"
+      "name": "某酒店大堂",
+      "address": "上海市某区某路某号"
     }
   },
   "ambient_tokens": ["mist", "warm", "steady"]
 }
-`;
 
-const ONE_SHOT_CANDIDATES_EXAMPLE = `
-EXAMPLE OUTPUT:
+OUTPUT: JSON only, following the exact structure shown in the example. Remember to use DIFFERENT places based on the random seed!
+`.trim();
+
+  return runGeminiJSON<CuratorialBundle>(prompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(userInput));
+}
+
+/** Generic: produce a CuratorialBundle from an already-built prompt (skills use this). */
+export async function generateCuratorialBundleWithGemini(prompt: string): Promise<CuratorialBundle> {
+  const randomSeed = generateRandomSeed();
+  const enhancedPrompt = prompt + `
+
+DIVERSITY REQUIREMENT:
+- Random seed: ${randomSeed}
+- Generate DIFFERENT recommendations each time
+- Do not always suggest the same places
+
+EXAMPLE OUTPUT (format reference only):
+{
+  "primary_ending": {
+    "id": "primary",
+    "title": "深夜书房角落",
+    "reason": "安静、低压力、适合独处思考。",
+    "checklist": ["选择靠墙的位置", "点一杯热饮", "停留60-90分钟"],
+    "risk_flags": ["parking_uncertain"],
+    "expires_at": "2026-02-05T02:00:00.000Z",
+    "action": "NAVIGATE",
+    "action_label": "Go",
+    "payload": {
+      "lat": 31.2304,
+      "lng": 121.4737,
+      "name": "某咖啡馆",
+      "address": "上海市某区某路某号"
+    }
+  },
+  "plan_b": {
+    "id": "plan_b",
+    "title": "酒店大堂备选",
+    "reason": "更保守的选择，营业时间更长。",
+    "checklist": ["从容走入", "坐在边缘位置", "需要时点杯茶"],
+    "risk_flags": ["noise_low"],
+    "action": "NAVIGATE",
+    "action_label": "Switch",
+    "payload": {
+      "lat": 31.2397,
+      "lng": 121.4748,
+      "name": "某酒店大堂",
+      "address": "上海市某区某路某号"
+    }
+  },
+  "ambient_tokens": ["mist", "warm", "steady"]
+}
+
+OUTPUT: JSON only.
+`;
+  return runGeminiJSON<CuratorialBundle>(enhancedPrompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(''));
+}
+
+/** Generic: produce a candidate pool for multi-stage skills. */
+export async function generateCandidatePoolWithGemini(prompt: string): Promise<{ candidate_pool: CandidateItem[]; ui?: any }> {
+  const randomSeed = generateRandomSeed();
+  const enhancedPrompt = prompt + `
+
+DIVERSITY REQUIREMENT:
+- Random seed: ${randomSeed}
+- Generate DIFFERENT candidates each time
+- Vary the types of recommendations (cafes, hotels, parks, bookstores, walking routes, etc.)
+
+EXAMPLE OUTPUT (format reference only):
 {
   "candidate_pool": [
     { "id": "A", "title": "安静的角落", "tag": "LOW RISK", "desc": "少交谈，坐下来，呼吸，恢复状态。" },
@@ -283,52 +456,9 @@ EXAMPLE OUTPUT:
   ],
   "ui": { "infoDensity": 0.28, "uiModeHint": "explore", "toneTags": ["minimal"] }
 }
+
+OUTPUT: JSON only.
 `;
-
-/**
- * Legacy wrapper: Tonight composer prompt (kept for compatibility).
- * This is intentionally opinionated (Shanghai curator voice).
- */
-export async function getCuratedEnding(userInput: string, context: ContextSignals): Promise<CuratorialBundle> {
-  const prompt = `
-ACT AS: A night-shift urban curator in Shanghai.
-TONE: "Gallery Label" style. Minimalist, evocative, short sentences.
-LOCATION: Strictly use Shanghai context (Xuhui, Jing'an, Bund, etc.).
-USER INPUT: ${JSON.stringify(userInput)}
-CONTEXT SIGNALS: ${JSON.stringify(context)}
-
-GOAL: Generate a CuratorialBundle for tonight's city ending.
-CONSTRAINTS:
-- Primary checklist: max 5.
-- Risk flags: max 2.
-- Ambient tokens: max 3.
-- Reason: 1-2 sentences.
-- "Delivery is exit": Provide a single clear outcome.
-- Plan B must be a real executable alternative with its own action and action_label.
-- IMPORTANT: For NAVIGATE or START_ROUTE actions, you MUST provide a real Shanghai location with:
-  - lat: latitude (31.0-31.5 range for Shanghai)
-  - lng: longitude (121.0-122.0 range for Shanghai)
-  - name: place name in Chinese
-  - address: full address in Chinese
-- Use real, well-known Shanghai locations (cafes, hotels, parks, etc.)
-
-${ONE_SHOT_BUNDLE_EXAMPLE}
-
-OUTPUT: JSON only, following the exact structure shown in the example.
-`.trim();
-
-  return runGeminiJSON<CuratorialBundle>(prompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(userInput));
-}
-
-/** Generic: produce a CuratorialBundle from an already-built prompt (skills use this). */
-export async function generateCuratorialBundleWithGemini(prompt: string): Promise<CuratorialBundle> {
-  const enhancedPrompt = prompt + '\n\n' + ONE_SHOT_BUNDLE_EXAMPLE + '\n\nOUTPUT: JSON only.';
-  return runGeminiJSON<CuratorialBundle>(enhancedPrompt, CURATORIAL_BUNDLE_SCHEMA, () => stubBundle(''));
-}
-
-/** Generic: produce a candidate pool for multi-stage skills. */
-export async function generateCandidatePoolWithGemini(prompt: string): Promise<{ candidate_pool: CandidateItem[]; ui?: any }> {
-  const enhancedPrompt = prompt + '\n\n' + ONE_SHOT_CANDIDATES_EXAMPLE + '\n\nOUTPUT: JSON only.';
   return runGeminiJSON<{ candidate_pool: CandidateItem[]; ui?: any }>(enhancedPrompt, CANDIDATE_POOL_SCHEMA, () => stubCandidates());
 }
 
@@ -336,49 +466,73 @@ export async function generateCandidatePoolWithGemini(prompt: string): Promise<{
 
 function stubCandidates(): { candidate_pool: CandidateItem[]; ui?: any } {
   console.log('[Gemini] Using stub candidates');
-  return {
-    candidate_pool: [
-      { id: 'A', title: 'A quiet corner', tag: 'LOW RISK', desc: 'Minimal talking. Sit down, breathe, regain shape.' },
-      { id: 'B', title: 'A short walk route', tag: 'MICRO ROUTE', desc: '20–35 minutes, streetlight-safe, easy exit.' },
-      { id: 'C', title: 'A warm late drink', tag: 'WARM', desc: 'One cup, one table, no performance required.' }
+  // 随机化 stub 数据
+  const candidateOptions = [
+    [
+      { id: 'A', title: '安静的角落', tag: 'LOW RISK', desc: '少交谈，坐下来，呼吸，恢复状态。' },
+      { id: 'B', title: '短途散步路线', tag: 'MICRO ROUTE', desc: '20-35分钟，路灯安全，容易退出。' },
+      { id: 'C', title: '温暖的夜饮', tag: 'WARM', desc: '一杯饮品，一张桌子，无需表演。' }
     ],
+    [
+      { id: 'A', title: '深夜书店', tag: 'QUIET', desc: '书架之间，时间变慢。' },
+      { id: 'B', title: '江边漫步', tag: 'OUTDOOR', desc: '外滩灯光，清风徐来。' },
+      { id: 'C', title: '酒店大堂', tag: 'SAFE', desc: '24小时营业，无需解释。' }
+    ],
+    [
+      { id: 'A', title: '独立咖啡馆', tag: 'COZY', desc: '手冲咖啡，木质桌椅。' },
+      { id: 'B', title: '公园长椅', tag: 'FREE', desc: '星空下，思绪飘远。' },
+      { id: 'C', title: '联合办公空间', tag: 'FOCUS', desc: '安静工作，专注当下。' }
+    ]
+  ];
+  
+  const selected = candidateOptions[Math.floor(Math.random() * candidateOptions.length)];
+  
+  return {
+    candidate_pool: selected,
     ui: { infoDensity: 0.28, uiModeHint: 'explore', toneTags: ['minimal'] }
   };
 }
 
 function stubBundle(seed: string): CuratorialBundle {
   console.log('[Gemini] Using stub bundle');
-  const title = seed?.trim() ? seed.trim().slice(0, 24) : 'A quiet corner & a warm drink';
+  
+  // 随机选择不同的地点
+  const places = getRandomPlaces(2);
+  const primary = places[0] || SHANGHAI_PLACES.cafes[Math.floor(Math.random() * SHANGHAI_PLACES.cafes.length)];
+  const backup = places[1] || SHANGHAI_PLACES.hotels[Math.floor(Math.random() * SHANGHAI_PLACES.hotels.length)];
+  
+  const title = seed?.trim() ? seed.trim().slice(0, 24) : primary.name;
+  
   return {
     primary_ending: {
       id: 'primary',
       title,
-      reason: 'Low pressure. High certainty. Tonight can be small and still complete.',
-      checklist: ['Choose a seat with a wall behind you', 'Order one stable drink', 'Stay 60–90 minutes', 'If crowded, switch to Plan B', 'Leave on your own timing'],
+      reason: '低压力，高确定性。今晚可以很小，但依然完整。',
+      checklist: ['选择靠墙的位置', '点一杯稳定的饮品', '停留60-90分钟', '如果太挤，切换到备选', '按自己的节奏离开'],
       risk_flags: ['parking_uncertain'],
       expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
       action: 'NAVIGATE',
       action_label: 'Go',
       payload: {
-        lat: 31.2304,
-        lng: 121.4737,
-        name: '% Arabica 武康路店',
-        address: '上海市徐汇区武康路378号'
+        lat: primary.lat,
+        lng: primary.lng,
+        name: primary.name,
+        address: primary.address
       }
     },
     plan_b: {
       id: 'plan_b',
-      title: 'Plan B: hotel lobby',
-      reason: 'More conservative fallback. Longer hours. Less negotiation.',
-      checklist: ['Walk in calmly', 'Sit at the edge', 'Order tea if needed'],
+      title: `备选: ${backup.name}`,
+      reason: '更保守的选择，营业时间更长。',
+      checklist: ['从容走入', '坐在边缘位置', '需要时点杯茶'],
       risk_flags: ['noise_low'],
       action: 'NAVIGATE',
       action_label: 'Switch',
       payload: {
-        lat: 31.2397,
-        lng: 121.4748,
-        name: '静安香格里拉大酒店大堂',
-        address: '上海市静安区延安中路1218号'
+        lat: backup.lat,
+        lng: backup.lng,
+        name: backup.name,
+        address: backup.address
       }
     },
     ambient_tokens: ['mist', 'warm', 'steady']
