@@ -1,6 +1,11 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// ES Module compatibility for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import crypto from 'node:crypto';
 
 import { NightfallEngine } from '../runtime/nightfallEngine';
