@@ -40,6 +40,19 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
+// Diagnostic endpoint to check environment configuration
+app.get('/api/diag', (req, res) => {
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+  const toolMode = process.env.NF_TOOL_MODE || 'not_set';
+  res.json({
+    gemini_key_present: !!geminiKey && geminiKey.length > 10,
+    gemini_key_prefix: geminiKey ? geminiKey.slice(0, 8) + '...' : 'none',
+    tool_mode: toolMode,
+    node_env: process.env.NODE_ENV || 'not_set',
+    env_production_loaded: fs.existsSync('.env.production')
+  });
+});
+
 // ---- Paths / config ----
 const PORT = Number(process.env.PORT ?? 4000);
 const AUDIT_JSONL = process.env.AUDIT_PATH ?? 'server/audit.jsonl';
