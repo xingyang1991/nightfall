@@ -1,5 +1,17 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
+import fs from 'node:fs';
+
+// Load environment variables from .env.production if it exists
+const envPath = '.env.production';
+if (fs.existsSync(envPath)) {
+  console.log('[Server] Loading environment from .env.production');
+  dotenv.config({ path: envPath });
+} else {
+  console.log('[Server] No .env.production found, using system environment');
+}
+console.log('[Server] GEMINI_API_KEY present:', !!process.env.GEMINI_API_KEY);
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
