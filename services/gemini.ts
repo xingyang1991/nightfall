@@ -38,7 +38,7 @@ async function ensureDotEnvLoaded() {
   try {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const candidates = ['.env.local', '.env'];
+    const candidates = ['.env.local', '.env.production', '.env'];
     for (const name of candidates) {
       const fp = path.resolve(process.cwd(), name);
       if (!fs.existsSync(fp)) continue;
