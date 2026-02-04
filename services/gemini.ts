@@ -2,6 +2,7 @@ import { GoogleGenAI, Type } from '@anthropic-ai/sdk/node_modules/@google/genai'
 import type { CuratorialBundle, CandidateItem } from '../types';
 import type { ContextSignals } from '../types';
 import { searchPlaces, searchNearby, getSearchKeywords, formatDistance, formatWalkTime, hasAmapKey, getPhotoUrl, type AmapPlace } from './amap';
+import { getImageForPlace } from './unsplash';
 
 let ai: GoogleGenAI | null = null;
 let aiKey: string | null = null;
@@ -454,26 +455,35 @@ OUTPUT: 仅输出 JSON，包含 candidate_pool 数组。
     () => { throw new Error('LLM 调用失败'); }
   );
   
-  // Step 3: 为每个候选附加真实数据
-  result.candidate_pool = result.candidate_pool.map((candidate, idx) => {
+  // Step 3: 为每个候选附加真实数据和图片
+  // 注意：高德图片有 CORS 问题，统一使用 Unsplash
+  result.candidate_pool = await Promise.all(result.candidate_pool.map(async (candidate, idx) => {
     const place = uniquePlaces.find(p => p.id === candidate.id) || uniquePlaces[idx];
     if (place) {
+      // 使用 Unsplash 获取类型匹配的图片（高德图片有 CORS 问题）
+      const imageUrl = await getImageForPlace(place.name || candidate.title) || '';
+      console.log(`[Gemini] Candidate ${idx}: ${place.name} -> image: ${imageUrl ? 'OK' : 'NONE'}`);
+      
       return {
         ...candidate,
-        image_ref: getPhotoUrl(place) || '',
+        // 使用真实地点名称作为标题（如果 LLM 生成的标题不包含真实地名）
+        title: candidate.title.includes(place.name) ? candidate.title : `${place.name}`,
+        image_ref: imageUrl,
         place_data: {
           lat: place.lat,
           lng: place.lng,
+          name: place.name,
           address: place.address,
           rating: place.rating,
           distance: place.distance ? formatDistance(place.distance) : '',
           walk_time: place.distance ? formatWalkTime(place.distance) : '',
-          place_id: place.id
+          place_id: place.id,
+          opentime: place.opentime || ''
         }
       };
     }
     return candidate;
-  });
+  }));
   
   return { ...result, places: uniquePlaces };
 }
