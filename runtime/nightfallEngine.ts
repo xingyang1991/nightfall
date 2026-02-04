@@ -14,6 +14,7 @@ import {
   programVeil,
   programFootprints
 } from '../a2ui/programs';
+import { programTonightLoading } from '../a2ui/programs_loading';
 import { SkillRuntime } from './skillRuntime';
 import { getSkillDescription, SKILL_DESCRIPTIONS } from './skills/skillDescriptions';
 import { getSkill, listSkills } from './skills/registry';
