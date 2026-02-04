@@ -529,35 +529,105 @@ function GalleryWall({ model, props, onAction }: { model: any; props: any; onAct
 }
 
 function PromptBar({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
-  const placeholder = props?.placeholder ?? 'I need a quiet place...';
+  const placeholder = props?.placeholder ?? '例如：找个安静的地方工作...';
   const submitAction = props?.submitAction ?? { name: 'TONIGHT_SUBMIT_ORDER' };
   const [input, setInput] = React.useState('');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
+  const [locationStatus, setLocationStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  const disabled = !input.trim();
+  const disabled = !input.trim() || isSubmitting;
 
-  const onSubmit = (e: React.FormEvent) => {
+  // 获取用户位置
+  const requestLocation = React.useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus('error');
+      return;
+    }
+    setLocationStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocationStatus('success');
+      },
+      (err) => {
+        console.warn('[Location] Failed:', err.message);
+        setLocationStatus('error');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, []);
+
+  // 首次加载时尝试获取位置
+  React.useEffect(() => {
+    requestLocation();
+  }, [requestLocation]);
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-    onAction(submitAction.name, { text: input.trim(), payload: submitAction.payload ?? {} });
+    if (!input.trim() || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      // 传递用户位置到后端
+      onAction(submitAction.name, { 
+        text: input.trim(), 
+        payload: { 
+          ...submitAction.payload,
+          userLocation: userLocation || undefined
+        } 
+      });
+    } finally {
+      // 延迟重置，让 loading 状态保持一段时间
+      setTimeout(() => setIsSubmitting(false), 500);
+    }
   };
 
   return (
-    <form onSubmit={onSubmit} className="relative w-full">
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder={placeholder}
-        className="w-full bg-white/[0.04] border border-white/10 rounded-2xl py-5 px-6 pr-14 text-white placeholder-white/10 focus:outline-none focus:ring-1 focus:ring-white/10 transition-all font-light text-sm"
-      />
-      <button
-        type="submit"
-        disabled={disabled}
-        className={`absolute right-4 top-1/2 -translate-y-1/2 transition-all ${disabled ? 'opacity-10 scale-90' : 'opacity-100 text-white active:scale-110'}`}
-      >
-        <Send size={16} />
-      </button>
-    </form>
+    <div className="w-full space-y-3">
+      {/* 定位状态提示 */}
+      <div className="flex items-center justify-center gap-2 text-[10px]">
+        {locationStatus === 'loading' && (
+          <span className="flex items-center gap-1.5 text-white/30">
+            <Loader2 size={10} className="animate-spin" />
+            正在获取位置...
+          </span>
+        )}
+        {locationStatus === 'success' && userLocation && (
+          <span className="flex items-center gap-1.5 text-emerald-400/60">
+            <MapPin size={10} />
+            已定位 · 将搜索附近地点
+          </span>
+        )}
+        {locationStatus === 'error' && (
+          <button 
+            onClick={requestLocation}
+            className="flex items-center gap-1.5 text-amber-400/60 hover:text-amber-400/80 transition-colors"
+          >
+            <MapPin size={10} />
+            未定位 · 点击重试
+          </button>
+        )}
+      </div>
+
+      <form onSubmit={onSubmit} className="relative w-full">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={placeholder}
+          disabled={isSubmitting}
+          className="w-full bg-white/[0.04] border border-white/10 rounded-2xl py-5 px-6 pr-14 text-white placeholder-white/30 focus:outline-none focus:ring-1 focus:ring-white/20 transition-all font-light text-sm disabled:opacity-50"
+        />
+        <button
+          type="submit"
+          disabled={disabled}
+          className={`absolute right-4 top-1/2 -translate-y-1/2 transition-all ${disabled ? 'opacity-10 scale-90' : 'opacity-100 text-white active:scale-110'}`}
+        >
+          {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+        </button>
+      </form>
+    </div>
   );
 }
 

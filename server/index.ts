@@ -14,6 +14,7 @@ console.log('[Server] Starting Nightfall backend...');
 console.log('[Server] NODE_ENV:', process.env.NODE_ENV || 'not_set');
 console.log('[Server] GEMINI_API_KEY present:', !!process.env.GEMINI_API_KEY);
 console.log('[Server] NF_TOOL_MODE:', process.env.NF_TOOL_MODE || 'not_set');
+console.log('[Server] AMAP_API_KEY present:', !!process.env.AMAP_API_KEY);
 
 import { NightfallEngine } from '../runtime/nightfallEngine';
 import { SkillRuntime } from '../runtime/skillRuntime';
@@ -38,10 +39,13 @@ app.use(express.json({ limit: '2mb' }));
 // Diagnostic endpoint to check environment configuration
 app.get('/api/diag', (req, res) => {
   const geminiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+  const amapKey = process.env.AMAP_API_KEY || '';
   const toolMode = process.env.NF_TOOL_MODE || 'not_set';
   res.json({
     gemini_key_present: !!geminiKey && geminiKey.length > 10,
     gemini_key_prefix: geminiKey ? geminiKey.slice(0, 8) + '...' : 'none',
+    amap_key_present: !!amapKey && amapKey.length > 10,
+    amap_key_prefix: amapKey ? amapKey.slice(0, 8) + '...' : 'none',
     tool_mode: toolMode,
     node_env: process.env.NODE_ENV || 'not_set',
     timestamp: new Date().toISOString()

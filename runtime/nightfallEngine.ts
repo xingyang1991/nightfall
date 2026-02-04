@@ -98,9 +98,12 @@ export class NightfallEngine {
       /** Tonight: free text -> routed skill -> candidate pool -> finalize */
       case 'TONIGHT_SUBMIT_ORDER': {
         const text = String((action.payload as any)?.text ?? '').trim();
+        const userLocation = (action.payload as any)?.payload?.userLocation as { lat: number; lng: number } | undefined;
         if (!text) return { messages: [], effects: [] };
 
         this.session.lastOrderText = text;
+        this.session.userLocation = userLocation; // 保存用户位置
+        console.log('[Engine] User location:', userLocation ? `${userLocation.lat}, ${userLocation.lng}` : 'not provided');
 
         const route = routeSkillFromUtterance(text, context, { fallbackSkillId: 'tonight_composer' });
         if ((route as any).type === 'clarify') {
@@ -417,9 +420,17 @@ export class NightfallEngine {
     const shouldCandidate = opts?.forceCandidate ? true : supportsCandidate;
 
     if (shouldCandidate) {
+      // 传递用户位置到 skill runtime
+      const userLocation = this.session.userLocation as { lat: number; lng: number } | undefined;
       const res = await this.runtime.runSkill(
         skillId,
-        { intent: 'explore', stage: 'candidate', utterance: req.utterance, constraints: req.constraints, selection: req.selection },
+        { 
+          intent: 'explore', 
+          stage: 'candidate', 
+          utterance: req.utterance, 
+          constraints: { ...req.constraints, userLocation },
+          selection: req.selection 
+        },
         context,
         this.session
       );

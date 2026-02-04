@@ -24,15 +24,13 @@ export const tonightComposerSkill: Skill = {
     const user = req.utterance ?? '';
     const choice = req.selection?.choice ? ` Preference: ${req.selection.choice}` : '';
     const prompt = `${user}${choice}`.trim();
+    
+    // 获取用户位置（从 constraints 中传递）
+    const userLocation = req.constraints?.userLocation as { lat: number; lng: number } | undefined;
+    console.log('[TonightComposer] User location:', userLocation ? `${userLocation.lat}, ${userLocation.lng}` : 'not provided');
 
-    // Seed session with real place photos when available (non-blocking).
-    try {
-      await tools.placesSearch({ query: prompt || ctx.context.location.city_id || 'quiet place', grid_id: ctx.context.location.grid_id });
-    } catch {
-      // ignore
-    }
-
-    const bundle = await getCuratedEnding(prompt, ctx.context);
+    // 传递用户位置到 getCuratedEnding，基于真实地点数据生成推荐
+    const bundle = await getCuratedEnding(prompt, ctx.context, userLocation);
 
     const out: SkillResult = {
       bundle,
