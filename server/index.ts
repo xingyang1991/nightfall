@@ -1,24 +1,19 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import fs from 'node:fs';
-
-// Load environment variables from .env.production if it exists
-const envPath = '.env.production';
-if (fs.existsSync(envPath)) {
-  console.log('[Server] Loading environment from .env.production');
-  dotenv.config({ path: envPath });
-} else {
-  console.log('[Server] No .env.production found, using system environment');
-}
-console.log('[Server] GEMINI_API_KEY present:', !!process.env.GEMINI_API_KEY);
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
 
 // ES Module compatibility for __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import crypto from 'node:crypto';
+
+// Log environment status at startup
+console.log('[Server] Starting Nightfall backend...');
+console.log('[Server] NODE_ENV:', process.env.NODE_ENV || 'not_set');
+console.log('[Server] GEMINI_API_KEY present:', !!process.env.GEMINI_API_KEY);
+console.log('[Server] NF_TOOL_MODE:', process.env.NF_TOOL_MODE || 'not_set');
 
 import { NightfallEngine } from '../runtime/nightfallEngine';
 import { SkillRuntime } from '../runtime/skillRuntime';
@@ -49,7 +44,7 @@ app.get('/api/diag', (req, res) => {
     gemini_key_prefix: geminiKey ? geminiKey.slice(0, 8) + '...' : 'none',
     tool_mode: toolMode,
     node_env: process.env.NODE_ENV || 'not_set',
-    env_production_loaded: fs.existsSync('.env.production')
+    timestamp: new Date().toISOString()
   });
 });
 
