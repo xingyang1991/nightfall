@@ -140,8 +140,59 @@ export async function searchNearby(options: SearchOptions): Promise<AmapPlace[]>
 export function getSearchKeywords(userIntent: string): { keywords: string; types?: string }[] {
   const intent = userIntent.toLowerCase();
   
+  // 技能名称映射
+  const skillKeywordMap: Record<string, { keywords: string; types?: string }[]> = {
+    '咖啡懂王': [
+      { keywords: '咖啡馆', types: '050301' },
+      { keywords: '精品咖啡', types: '050301' },
+      { keywords: 'Manner Coffee', types: '050301' }
+    ],
+    '书店避难所': [
+      { keywords: '书店', types: '060100' },
+      { keywords: '独立书店' },
+      { keywords: '24小时书店' }
+    ],
+    '今晚结局': [
+      { keywords: '咖啡馆', types: '050301' },
+      { keywords: '书店', types: '060100' },
+      { keywords: '酒吧', types: '050400' }
+    ],
+    '隐形参与': [
+      { keywords: '展览馆', types: '140100' },
+      { keywords: '艺术中心' },
+      { keywords: '画廊' }
+    ],
+    '穷游散步': [
+      { keywords: '公园', types: '110101' },
+      { keywords: '步行街' },
+      { keywords: '滨江步道' }
+    ],
+    '找个放松的地方': [
+      { keywords: '咖啡馆', types: '050301' },
+      { keywords: '茶馆', types: '050302' },
+      { keywords: '公园', types: '110101' }
+    ],
+    '雨天去处': [
+      { keywords: '商场', types: '060400' },
+      { keywords: '书店', types: '060100' },
+      { keywords: '咖啡馆', types: '050301' }
+    ],
+    '建筑漫游': [
+      { keywords: '历史建筑' },
+      { keywords: '老洋房' },
+      { keywords: '文化街区' }
+    ]
+  };
+  
+  // 检查是否匹配技能名称
+  for (const [skillName, keywords] of Object.entries(skillKeywordMap)) {
+    if (intent.includes(skillName.toLowerCase()) || intent === skillName.toLowerCase()) {
+      return keywords;
+    }
+  }
+  
   // 咖啡馆相关
-  if (intent.includes('咖啡') || intent.includes('coffee') || intent.includes('工作')) {
+  if (intent.includes('咖啡') || intent.includes('coffee') || intent.includes('工作') || intent.includes('久坐')) {
     return [
       { keywords: '咖啡馆', types: '050301' },
       { keywords: '独立咖啡', types: '050301' },
@@ -159,16 +210,16 @@ export function getSearchKeywords(userIntent: string): { keywords: string; types
   }
   
   // 安静/放松相关
-  if (intent.includes('安静') || intent.includes('放松') || intent.includes('发呆')) {
+  if (intent.includes('安静') || intent.includes('放松') || intent.includes('发呆') || intent.includes('chill')) {
     return [
-      { keywords: '咖啡馆 安静', types: '050301' },
+      { keywords: '咖啡馆', types: '050301' },
       { keywords: '茶馆', types: '050302' },
       { keywords: '书店', types: '060100' }
     ];
   }
   
   // 酒吧/夜生活
-  if (intent.includes('酒') || intent.includes('bar') || intent.includes('喝')) {
+  if (intent.includes('酒') || intent.includes('bar') || intent.includes('喝') || intent.includes('夜')) {
     return [
       { keywords: '清吧', types: '050400' },
       { keywords: '威士忌吧', types: '050400' },
@@ -177,11 +228,20 @@ export function getSearchKeywords(userIntent: string): { keywords: string; types
   }
   
   // 公园/户外
-  if (intent.includes('公园') || intent.includes('散步') || intent.includes('户外')) {
+  if (intent.includes('公园') || intent.includes('散步') || intent.includes('户外') || intent.includes('走走')) {
     return [
       { keywords: '公园', types: '110101' },
       { keywords: '城市绿地', types: '110102' },
       { keywords: '滨江步道' }
+    ];
+  }
+  
+  // 展览/艺术
+  if (intent.includes('展') || intent.includes('艺术') || intent.includes('画廊') || intent.includes('博物馆')) {
+    return [
+      { keywords: '展览馆', types: '140100' },
+      { keywords: '美术馆' },
+      { keywords: '博物馆', types: '140200' }
     ];
   }
   

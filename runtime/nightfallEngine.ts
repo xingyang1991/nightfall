@@ -184,7 +184,7 @@ export class NightfallEngine {
         this.session.candidateVariant = 0;
 
         const utterance = String((action.payload as any)?.item?.prompt ?? skill.manifest.defaultPrompt ?? '').trim()
-          || `Use $${skillId}`;
+          || skill.manifest.title || skillId;
 
         this.session.lastOrderText = utterance;
 

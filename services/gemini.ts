@@ -3,6 +3,7 @@ import type { CuratorialBundle, CandidateItem } from '../types';
 import type { ContextSignals } from '../types';
 import { searchPlaces, searchNearby, getSearchKeywords, formatDistance, formatWalkTime, hasAmapKey, getPhotoUrl, type AmapPlace } from './amap';
 import { getImageForPlace } from './unsplash';
+import { runOpenAIJSON, hasOpenAIKey } from './openai';
 
 let ai: GoogleGenAI | null = null;
 let aiKey: string | null = null;
@@ -190,12 +191,42 @@ export const CANDIDATE_POOL_SCHEMA = {
 };
 
 // ============ LLM 调用函数 ============
-async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T): Promise<T> {
+
+/**
+ * 统一的 LLM 调用函数，支持 Gemini 和 OpenAI 两种后端
+ * 优先使用 Gemini，如果失败（配额用完等）则回退到 OpenAI
+ */
+async function runLLMJSON<T>(prompt: string, schema: any, fallback: () => T): Promise<T> {
+  // 首先尝试 Gemini
+  const geminiResult = await tryGemini<T>(prompt, schema);
+  if (geminiResult.success) {
+    return geminiResult.data!;
+  }
+  
+  // Gemini 失败，尝试 OpenAI
+  if (hasOpenAIKey()) {
+    console.log('[LLM] Gemini failed, trying OpenAI as fallback...');
+    try {
+      const result = await runOpenAIJSON<T>(prompt, fallback);
+      return result;
+    } catch (openaiError: any) {
+      console.error('[LLM] OpenAI also failed:', openaiError?.message);
+    }
+  } else {
+    console.warn('[LLM] OpenAI not available (no API key)');
+  }
+  
+  // 两个都失败了，抛出原始 Gemini 错误
+  throw new Error(geminiResult.error || 'LLM call failed');
+}
+
+/**
+ * 尝试使用 Gemini API
+ */
+async function tryGemini<T>(prompt: string, schema: any): Promise<{ success: boolean; data?: T; error?: string }> {
   const client = await getClient();
   if (!client) {
-    const errorMsg = '[Gemini] No valid API key configured. Please set GEMINI_API_KEY environment variable.';
-    console.error(errorMsg);
-    throw new Error(errorMsg);
+    return { success: false, error: '[Gemini] No valid API key configured' };
   }
 
   let response: any;
@@ -216,6 +247,12 @@ async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T):
   } catch (error: any) {
     console.error('[Gemini] API request failed:', error?.message || error);
     
+    // 检查是否是配额错误
+    const errorMsg = String(error?.message || '');
+    if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+      return { success: false, error: `[Gemini] Quota exceeded: ${errorMsg}` };
+    }
+    
     // 尝试不使用 schema 的简化模式
     try {
       console.log('[Gemini] Retrying without strict schema...');
@@ -230,25 +267,28 @@ async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T):
       console.log('[Gemini] Retry succeeded');
     } catch (retryError: any) {
       console.error('[Gemini] Retry also failed:', retryError?.message || retryError);
-      throw new Error(`[Gemini] API call failed after retry: ${retryError?.message || 'Unknown error'}`);
+      return { success: false, error: `[Gemini] API call failed: ${retryError?.message || 'Unknown error'}` };
     }
   }
 
   try {
     const text = response?.text?.trim() || '';
     if (!text) {
-      const errorMsg = '[Gemini] Empty response text from API';
-      console.error(errorMsg);
-      throw new Error(errorMsg);
+      return { success: false, error: '[Gemini] Empty response text from API' };
     }
     const parsed = JSON.parse(text) as T;
     console.log('[Gemini] Successfully parsed response');
-    return parsed;
+    return { success: true, data: parsed };
   } catch (error: any) {
     console.error('[Gemini] Failed to parse JSON:', error?.message);
     console.error('[Gemini] Raw response:', response?.text?.slice(0, 500));
-    throw new Error(`[Gemini] Failed to parse API response: ${error?.message || 'Unknown error'}`);
+    return { success: false, error: `[Gemini] Failed to parse response: ${error?.message}` };
   }
+}
+
+// 保留旧函数名以兼容现有代码
+async function runGeminiJSON<T>(prompt: string, schema: any, fallback: () => T): Promise<T> {
+  return runLLMJSON<T>(prompt, schema, fallback);
 }
 
 /**
