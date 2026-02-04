@@ -33,7 +33,11 @@ export class NightfallOrchestrator {
   private sessionId: string | null = null;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl ?? (import.meta as any).env?.VITE_NIGHTFALL_API ?? 'http://localhost:4000';
+    // In production, use relative path (same origin); in dev, use localhost:4000
+    const defaultUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost' 
+      ? '' 
+      : 'http://localhost:4000';
+    this.baseUrl = baseUrl ?? (import.meta as any).env?.VITE_NIGHTFALL_API ?? defaultUrl;
   }
 
   bootstrap(env: OrchestratorEnv) {
