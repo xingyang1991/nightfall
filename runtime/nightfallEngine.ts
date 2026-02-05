@@ -16,7 +16,7 @@ import {
 import { programTonightLoading } from '../a2ui/programs_loading';
 import { SkillRuntime } from './skillRuntime';
 import { getSkillDescription, SKILL_DESCRIPTIONS } from './skills/skillDescriptions';
-import { getSkill, listSkills } from './skills/registry';
+import { getPresetScenes, getSkill, listSkills } from './skills/registry';
 import { routeSkillFromUtterance, type RouteResult } from './router/skillRouter';
 import { ToolBus } from './toolbus/toolBus';
 import { shouldUpdateSurface } from './policy/channelBudget';
@@ -67,10 +67,12 @@ export class NightfallEngine {
     const skillShelf = buildSkillShelfItems();
     this.session.discoverSkills = skillShelf;
     this.session.discoverHero = skillShelf?.[0] ?? null;
+    const scenes = getPresetScenes();
+    this.session.discoverScenes = scenes;
 
     const messages: A2UIMessage[] = [
       ...programTonightOrder(context),
-      ...programDiscover(context, skillShelf),
+      ...programDiscover(context, scenes),
       ...programSky(context),
       ...programPocket(context),
       ...programWhispers(context),
@@ -188,6 +190,28 @@ export class NightfallEngine {
         const r = await this.runCandidateOrFinalize(skillId, context, { utterance }, effects);
         messages.push(...r);
 
+        return { messages, effects };
+      }
+
+      case 'SCENE_ACTIVATE': {
+        const payload = (action.payload as any) ?? {};
+        const presetQuery = String(payload?.preset_query ?? '').trim();
+        const skillId = String(payload?.skill_id ?? '').trim();
+        const sceneId = String(payload?.scene_id ?? '').trim();
+        if (!presetQuery || !skillId) return { messages: [], effects: [] };
+
+        const skill = getSkill(skillId);
+        if (!skill) return { messages: [], effects: [] };
+
+        effects.push({ type: 'set_channel', channel: 'tonight' });
+
+        this.session.scene_source = sceneId || undefined;
+        this.session.activeSkillId = skillId;
+        this.session.candidateVariant = 0;
+        this.session.lastOrderText = presetQuery;
+
+        const r = await this.runCandidateOrFinalize(skillId, context, { utterance: presetQuery }, effects);
+        messages.push(...r);
         return { messages, effects };
       }
 
@@ -634,13 +658,21 @@ export class NightfallEngine {
         const match = matchPlacePhoto(c.title, placePhotos) ?? placePhotos[idx % placePhotos.length];
         const ref = (match?.photo_url || match?.photo_ref) ?? '';
         const image_ref = ref ? (ref.startsWith('nf://') ? ref : `nf://photo/${ref}`) : `nf://fragment/${skillId}/${c.id || idx}`;
-        return { ...c, image_ref };
+        return { ...c, image_ref, image_source: c.image_source ?? (ref ? 'google' : 'default') };
       });
     }
 
     // 使用 Unsplash API 获取真实图片
     try {
       console.log('[NightfallEngine] Fetching Unsplash images for candidates...');
+      const preserved = candidates.map((c) => {
+        const hasSource = Boolean(c.image_source);
+        const hasRef = Boolean(c.image_ref);
+        const isHttp = String(c.image_ref ?? '').startsWith('http');
+        if (isHttp || (hasSource && hasRef)) return { ...c, _preserve: true };
+        return { ...c, _preserve: false };
+      });
+
       const candidatesWithIds = candidates.map((c, idx) => ({
         id: c.id || String(idx),
         title: c.title,
@@ -651,10 +683,14 @@ export class NightfallEngine {
       
       // 合并图片到原始候选项
       return candidates.map((c, idx) => {
+        if ((preserved[idx] as any)?._preserve) return { ...c };
         const matched = withImages.find(w => w.id === (c.id || String(idx)));
+        const resolvedRef = matched?.image_ref || c.image_ref || `nf://fragment/${skillId}/${c.id || idx}`;
+        const resolvedSource = c.image_source ?? (String(resolvedRef).startsWith('http') ? 'unsplash' : 'default');
         return {
           ...c,
-          image_ref: matched?.image_ref || c.image_ref || `nf://fragment/${skillId}/${c.id || idx}`
+          image_ref: resolvedRef,
+          image_source: resolvedSource
         };
       });
     } catch (error) {
@@ -662,7 +698,8 @@ export class NightfallEngine {
       // Fallback 到程序生成的图片
       return candidates.map((c, idx) => ({
         ...c,
-        image_ref: c.image_ref || `nf://fragment/${skillId}/${c.id || idx}`
+        image_ref: c.image_ref || `nf://fragment/${skillId}/${c.id || idx}`,
+        image_source: c.image_source ?? 'default'
       }));
     }
   }
@@ -839,6 +876,9 @@ export class NightfallEngine {
       ? this.session.discoverSkills
       : buildSkillShelfItems();
     const hero = this.session.discoverHero ?? skills?.[0] ?? null;
+    const scenes = Array.isArray(this.session.discoverScenes) && this.session.discoverScenes.length
+      ? this.session.discoverScenes
+      : getPresetScenes();
     return [
       {
         dataModelUpdate: {
@@ -846,6 +886,17 @@ export class NightfallEngine {
           contents: [
             { key: 'discover', value: { valueMap: [
               { key: 'stage', value: { valueString: 'library' } },
+              { key: 'scenes', value: { valueList: scenes.map((s: any) => ({ valueMap: [
+                { key: 'id', value: { valueString: String(s.id ?? '') } },
+                { key: 'title', value: { valueString: String(s.title ?? '') } },
+                { key: 'subtitle', value: { valueString: String(s.subtitle ?? '') } },
+                { key: 'preset_query', value: { valueString: String(s.preset_query ?? '') } },
+                { key: 'skill_id', value: { valueString: String(s.skill_id ?? '') } },
+                { key: 'image_ref', value: { valueString: String(s.image_ref ?? '') } },
+                { key: 'gradient', value: { valueString: String(s.gradient ?? '') } },
+                { key: 'icon', value: { valueString: String(s.icon ?? '') } },
+                { key: 'tags', value: { valueList: Array.isArray(s.tags) ? s.tags.map((t: any) => ({ valueString: String(t) })) : [] } }
+              ]})) } },
               { key: 'skills', value: { valueList: skills.map((s: any) => ({ valueMap: [
                 { key: 'id', value: { valueString: String(s.id ?? '') } },
                 { key: 'tag', value: { valueString: String(s.tag ?? '') } },

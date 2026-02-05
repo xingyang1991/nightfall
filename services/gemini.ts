@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import type { CuratorialBundle, CandidateItem } from '../types';
 import type { ContextSignals } from '../types';
 import { searchPlaces, searchNearby, getSearchKeywords, formatDistance, formatWalkTime, hasAmapKey, getPhotoUrl, type AmapPlace } from './amap';
-import { getImageForPlace } from './unsplash';
+import { resolveImageForPlace } from './imageResolver';
 import { runOpenAIJSON, hasOpenAIKey } from './openai';
 
 let ai: GoogleGenAI | null = null;
@@ -408,14 +408,28 @@ OUTPUT: 仅输出 JSON，遵循 CuratorialBundle 结构。
     p.id === bundle.plan_b.payload?.place_id
   );
   
-  // 使用高德照片或 Unsplash 作为封面
-  const coverPhoto = primaryPlace ? getPhotoUrl(primaryPlace) : null;
-  const planBPhoto = planBPlace ? getPhotoUrl(planBPlace) : null;
-  
+  // 使用高德照片优先，其次 Unsplash
+  const primaryImage = primaryPlace
+    ? await resolveImageForPlace({ id: primaryPlace.id, name: primaryPlace.name, type: primaryPlace.type, photos: primaryPlace.photos })
+    : null;
+  const planBImage = planBPlace
+    ? await resolveImageForPlace({ id: planBPlace.id, name: planBPlace.name, type: planBPlace.type, photos: planBPlace.photos })
+    : null;
+
+  const galleryRefs = uniquePlaces
+    .map(p => getPhotoUrl(p) || '')
+    .filter(Boolean)
+    .slice(0, 4);
+
+  if (!galleryRefs.length) {
+    if (primaryImage?.url) galleryRefs.push(primaryImage.url);
+    if (planBImage?.url && galleryRefs.length < 4) galleryRefs.push(planBImage.url);
+  }
+
   bundle.media_pack = {
-    cover_ref: coverPhoto || '',
-    fragment_ref: coverPhoto || '',
-    gallery_refs: uniquePlaces.slice(0, 4).map(p => getPhotoUrl(p) || '').filter(Boolean),
+    cover_ref: primaryImage?.url || '',
+    fragment_ref: planBImage?.url || primaryImage?.url || '',
+    gallery_refs: galleryRefs,
     tone_tags: bundle.ambient_tokens || ['quiet']
   };
   
@@ -500,15 +514,21 @@ OUTPUT: 仅输出 JSON，包含 candidate_pool 数组。
   result.candidate_pool = await Promise.all(result.candidate_pool.map(async (candidate, idx) => {
     const place = uniquePlaces.find(p => p.id === candidate.id) || uniquePlaces[idx];
     if (place) {
-      // 使用 Unsplash 获取类型匹配的图片（高德图片有 CORS 问题）
-      const imageUrl = await getImageForPlace(place.name || candidate.title) || '';
-      console.log(`[Gemini] Candidate ${idx}: ${place.name} -> image: ${imageUrl ? 'OK' : 'NONE'}`);
+      const imageResult = await resolveImageForPlace({
+        id: place.id,
+        name: place.name || candidate.title,
+        type: place.type,
+        keywords: [candidate.title, userInput],
+        photos: place.photos
+      });
+      console.log(`[Gemini] Candidate ${idx}: ${place.name} -> image: ${imageResult.url ? imageResult.source : 'NONE'}`);
       
       return {
         ...candidate,
         // 使用真实地点名称作为标题（如果 LLM 生成的标题不包含真实地名）
         title: candidate.title.includes(place.name) ? candidate.title : `${place.name}`,
-        image_ref: imageUrl,
+        image_ref: imageResult.url,
+        image_source: imageResult.source,
         place_data: {
           lat: place.lat,
           lng: place.lng,

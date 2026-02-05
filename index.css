@@ -125,3 +125,37 @@ body::after{
   mix-blend-mode: screen;
   pointer-events: none;
 }
+
+@keyframes scene-activate {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+}
+
+.scene-transitioning {
+  animation: scene-activate 0.6s ease-out forwards;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-entering {
+  animation: page-enter 0.4s ease-out;
+}

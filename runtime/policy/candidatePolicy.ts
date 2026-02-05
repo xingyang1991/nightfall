@@ -14,6 +14,7 @@ function clipString(s: string, maxLen: number) {
 export function enforceCandidatePolicy(items: CandidateItem[], audit?: AuditLog): CandidateItem[] {
   const arr = Array.isArray(items) ? items : [];
   const clipped = arr.slice(0, MAX_CANDIDATES).map((it, idx) => ({
+    ...it,
     id: clipString(String(it?.id ?? `C${idx + 1}`), 18),
     title: clipString(String(it?.title ?? 'Untitled'), MAX_TITLE),
     tag: clipString(String(it?.tag ?? 'EDITION'), MAX_TAG),

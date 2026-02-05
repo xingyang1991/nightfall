@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useA2UIRuntime } from './store';
 import { A2UIAction, A2UIComponent } from './messages';
 import { getByPath, resolveList, resolveNumber, resolveText } from './bindings';
-import { Bookmark, ChevronRight, Loader2, Navigation, Play, Lamp, Ticket, ArrowDown, Send, Sparkles, Activity, User as UserIcon, MapPin, ExternalLink } from 'lucide-react';
+import { Bookmark, ChevronRight, Loader2, Navigation, Play, Lamp, Ticket, ArrowDown, Send, Sparkles, Activity, User as UserIcon, MapPin, ExternalLink, Camera, Heart, X } from 'lucide-react';
 import { saveTicketToPocket, getPocketTickets, getFootprints, saveWhisper, getWhispers, recordPlaceVisit, StoredTicket } from './storage';
 
 /**
@@ -155,6 +155,9 @@ const A2UIRenderNode: React.FC<RenderNodeProps> = ({ surfaceId, nodeId }) => {
     case 'PromptBar': {
       return <PromptBar model={model} props={rawProps} onAction={send} />;
     }
+    case 'SceneGrid': {
+      return <SceneGrid model={model} props={rawProps} onAction={send} />;
+    }
     case 'ChoiceList': {
       return <ChoiceList model={model} props={rawProps} onAction={send} />;
     }
@@ -172,6 +175,12 @@ const A2UIRenderNode: React.FC<RenderNodeProps> = ({ surfaceId, nodeId }) => {
     }
     case 'SkyStats': {
       return <SkyStats model={model} props={rawProps} onAction={send} />;
+    }
+    case 'SkyAtmosphere': {
+      return <SkyAtmosphere model={model} props={rawProps} onAction={send} />;
+    }
+    case 'VeilMomentStream': {
+      return <VeilMomentStream model={model} props={rawProps} onAction={send} />;
     }
     case 'VeilCollagePanel': {
       return <VeilCollagePanel model={model} props={rawProps} onAction={send} />;
@@ -239,6 +248,46 @@ function resolveImageStyle(imageRef?: string, fallbackSeed = 'nightfall') {
     return { backgroundImage: textureFromSeed(seed) };
   }
   return { backgroundImage: textureFromSeed(ref) };
+}
+
+function getApiBase(): string {
+  const envBase = (import.meta as any).env?.VITE_NIGHTFALL_API;
+  if (typeof envBase === 'string') return envBase;
+  if (typeof window === 'undefined') return '';
+  return window.location.hostname === 'localhost' ? 'http://localhost:4000' : '';
+}
+
+function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const token = window.localStorage.getItem('nightfall_auth_token');
+    return token && token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildAuthHeaders(extra: Record<string, string> = {}) {
+  const token = getAuthToken();
+  return token
+    ? { ...extra, Authorization: `Bearer ${token}` }
+    : extra;
+}
+
+function getOrCreateUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const key = 'nightfall_user_id';
+    const existing = window.localStorage.getItem(key);
+    if (existing) return existing;
+    const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `nf_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+    window.localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return null;
+  }
 }
 
 function EmptyState({ title, subtitle }: { title: string; subtitle?: string }) {
@@ -380,7 +429,8 @@ function NightfallTicket({ model, props, onAction }: { surfaceId: string; model:
     const savedTicket = saveTicketToPocket(bundle);
     console.log('Ticket saved:', savedTicket);
     // 同时通知后端（如果需要）
-    onAction('SAVE_TICKET', { bundle, ticketId: savedTicket.id });
+    const orderText = getByPath(model, '/tonight/order_text');
+    onAction('SAVE_TICKET', { bundle, ticketId: savedTicket.id, user_query: orderText ?? '' });
   };
 
   return (
@@ -529,10 +579,12 @@ function GalleryWall({ model, props, onAction }: { model: any; props: any; onAct
 function PromptBar({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
   const placeholder = props?.placeholder ?? '例如：找个安静的地方工作...';
   const submitAction = props?.submitAction ?? { name: 'TONIGHT_SUBMIT_ORDER' };
+  const presetText = resolveText(model, { path: props?.valuePath ?? '/tonight/order_text' }) || '';
   const [input, setInput] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
   const [locationStatus, setLocationStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const lastPresetRef = React.useRef('');
 
   const disabled = !input.trim() || isSubmitting;
 
@@ -556,10 +608,16 @@ function PromptBar({ model, props, onAction }: { model: any; props: any; onActio
     );
   }, []);
 
-  // 首次加载时尝试获取位置
   React.useEffect(() => {
-    requestLocation();
-  }, [requestLocation]);
+    if (!presetText) return;
+    setInput((prev) => {
+      if (!prev || prev === lastPresetRef.current) {
+        lastPresetRef.current = presetText;
+        return presetText;
+      }
+      return prev;
+    });
+  }, [presetText]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,6 +643,15 @@ function PromptBar({ model, props, onAction }: { model: any; props: any; onActio
     <div className="w-full space-y-3">
       {/* 定位状态提示 */}
       <div className="flex items-center justify-center gap-2 text-[10px]">
+        {locationStatus === 'idle' && (
+          <button
+            onClick={requestLocation}
+            className="flex items-center gap-1.5 text-white/30 hover:text-white/50 transition-colors"
+          >
+            <MapPin size={10} />
+            点击定位 · 用于推荐附近地点
+          </button>
+        )}
         {locationStatus === 'loading' && (
           <span className="flex items-center gap-1.5 text-white/30">
             <Loader2 size={10} className="animate-spin" />
@@ -626,6 +693,73 @@ function PromptBar({ model, props, onAction }: { model: any; props: any; onActio
         </button>
       </form>
     </div>
+  );
+}
+
+function SceneGrid({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
+  const itemsPath = props?.itemsPath ?? '/discover/scenes';
+  const scenes: any[] = resolveList(model, itemsPath);
+
+  if (!scenes.length) {
+    return <EmptyState title="暂无可用场景" subtitle="稍后再来看看" />;
+  }
+
+  return (
+    <div className="w-full max-w-4xl mx-auto px-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {scenes.map((scene) => (
+          <SceneCard key={scene.id} scene={scene} onAction={onAction} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SceneCard({ scene, onAction }: { scene: any; onAction: (name: string, payload?: any) => void }) {
+  const [isActivating, setIsActivating] = React.useState(false);
+  const tags: string[] = Array.isArray(scene?.tags) ? scene.tags : [];
+  const gradient = String(scene?.gradient ?? 'from-slate-900/80 to-zinc-900/90');
+  const imageRef = String(scene?.image_ref ?? '').trim();
+
+  const onClick = () => {
+    if (isActivating) return;
+    setIsActivating(true);
+    onAction('SCENE_ACTIVATE', {
+      preset_query: scene?.preset_query,
+      skill_id: scene?.skill_id,
+      scene_id: scene?.id
+    });
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`relative w-full aspect-[4/3] rounded-2xl overflow-hidden group transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98] ${isActivating ? 'scene-transitioning' : ''}`}
+    >
+      <div className="absolute inset-0 nf-grade" style={resolveImageStyle(imageRef, String(scene?.id ?? 'scene'))} />
+      <div className={`absolute inset-0 bg-gradient-to-t ${gradient}`} />
+
+      <div className="absolute inset-0 p-6 flex flex-col justify-end text-left">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-2xl">{scene?.icon ?? '✦'}</span>
+          <h3 className="text-xl font-semibold text-white">{scene?.title ?? '未命名场景'}</h3>
+        </div>
+        <p className="text-sm text-white/70 mb-3">{scene?.subtitle ?? ''}</p>
+        <div className="flex gap-2 flex-wrap">
+          {tags.map((tag) => (
+            <span key={tag} className="px-2 py-1 text-xs bg-white/10 rounded-full text-white/80">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <span className="px-3 py-1 bg-white/20 backdrop-blur rounded-full text-xs text-white">
+          点击启动 →
+        </span>
+      </div>
+    </button>
   );
 }
 
@@ -675,6 +809,17 @@ function CandidateShelf({ model, props, onAction }: { model: any; props: any; on
             const title = it.title ?? '未命名';
             const tag = it.tag ?? 'EDITION';
             const desc = it.desc ?? '';
+            const source = String(it.image_source ?? '').toLowerCase();
+            const sourceLabel =
+              source === 'amap' ? '实景' :
+              source === 'unsplash' ? '氛围' :
+              source === 'default' ? '默认' :
+              source === 'google' ? '实景' :
+              '';
+            const sourceTone =
+              source === 'amap' || source === 'google' ? 'bg-emerald-500/80 text-white' :
+              source === 'unsplash' ? 'bg-slate-800/70 text-white/80' :
+              'bg-white/10 text-white/60';
             return (
               <button
                 key={idx}
@@ -684,6 +829,11 @@ function CandidateShelf({ model, props, onAction }: { model: any; props: any; on
                 <div className="relative aspect-square rounded-[1.4rem] overflow-hidden border border-white/10">
                   <div className="absolute inset-0 nf-grade" style={resolveImageStyle(it.image_ref, title)} />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+                  {sourceLabel ? (
+                    <div className={`absolute top-2 left-2 px-2 py-1 rounded-full text-[9px] mono uppercase tracking-[0.2em] ${sourceTone}`}>
+                      {sourceLabel}
+                    </div>
+                  ) : null}
                   <div className="absolute bottom-3 left-3 right-3">
                     <div className="text-[11px] font-light italic text-white/85 leading-tight">{title}</div>
                   </div>
@@ -812,9 +962,66 @@ function WhisperComposer({ model, props, onAction }: { model: any; props: any; o
 function PocketPanel({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
   const modelItems: any[] = resolveList(model, props?.ticketsPath ?? '/pocket/tickets');
   const pulse: number[] = resolveList(model, props?.pulsePath ?? '/pocket/pulse');
-  
+  const [remoteTickets, setRemoteTickets] = React.useState<any[]>([]);
+  const [archive, setArchive] = React.useState<any | null>(null);
+  const [archiveLoading, setArchiveLoading] = React.useState(false);
+  const [archiveShareLoading, setArchiveShareLoading] = React.useState(false);
+  const [archiveError, setArchiveError] = React.useState('');
+  const [editingTicketId, setEditingTicketId] = React.useState<string | null>(null);
+  const [noteDrafts, setNoteDrafts] = React.useState<Record<string, string>>({});
+  const [ticketSavingId, setTicketSavingId] = React.useState<string | null>(null);
+  const fetchedRemoteRef = React.useRef(false);
+  const fetchedArchiveRef = React.useRef(false);
+  const userId = React.useMemo(() => getOrCreateUserId(), []);
+  const apiBase = getApiBase();
+  const apiRoot = apiBase.replace(/\/$/, '');
+
   // 优先从 localStorage 读取票根列表
   const localTickets = getPocketTickets();
+  const hasLocal = localTickets.length > 0;
+
+  React.useEffect(() => {
+    if (!userId || fetchedRemoteRef.current || hasLocal) return;
+    fetchedRemoteRef.current = true;
+    fetch(`${apiRoot}/api/tickets?user_id=${encodeURIComponent(userId)}&limit=50`, {
+      headers: buildAuthHeaders()
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const rows = Array.isArray(data?.tickets) ? data.tickets : [];
+        const mapped = rows.map((t: any) => {
+          const bundle = safeParse(t.bundle_json);
+          return {
+            id: t.id,
+            title: t.place_name || bundle?.primary_ending?.title || t.id,
+            type: 'OUTCOME',
+            date: t.visit_date || String(t.created_at || '').slice(0, 10),
+            image_ref: t.image_ref || bundle?.media_pack?.cover_ref || bundle?.media_pack?.fragment_ref || '',
+            bundle,
+            memory_note: t.memory_note ?? '',
+            is_favorite: Boolean(t.is_favorite),
+            remote: true
+          };
+        });
+        setRemoteTickets(mapped);
+      })
+      .catch(() => {});
+  }, [userId, apiBase, hasLocal]);
+
+  React.useEffect(() => {
+    if (!userId || fetchedArchiveRef.current) return;
+    fetchedArchiveRef.current = true;
+    fetch(`${apiRoot}/api/archives?user_id=${encodeURIComponent(userId)}&limit=1`, {
+      headers: buildAuthHeaders()
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data?.archives) ? data.archives : [];
+        if (list.length) setArchive(list[0]);
+      })
+      .catch(() => {});
+  }, [userId, apiBase]);
+
   const items: any[] = localTickets.length > 0 
     ? localTickets.map(t => ({
         id: t.id,
@@ -822,9 +1029,92 @@ function PocketPanel({ model, props, onAction }: { model: any; props: any; onAct
         type: 'OUTCOME',
         date: new Date(t.timestamp).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
         image_ref: t.bundle?.media_pack?.cover_ref || t.bundle?.media_pack?.fragment_ref || '',
-        bundle: t.bundle
+        bundle: t.bundle,
+        remote: false
       }))
-    : modelItems;
+    : (remoteTickets.length ? remoteTickets : modelItems);
+
+  const startOfMonth = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return { start: formatDate(start), end: formatDate(end) };
+  };
+
+  const updateRemoteTicket = (id: string, patch: { memory_note?: string; is_favorite?: boolean }) => {
+    setRemoteTickets((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  };
+
+  const saveTicketPatch = async (id: string, patch: { memory_note?: string; is_favorite?: boolean }) => {
+    if (!userId || ticketSavingId === id) return;
+    setTicketSavingId(id);
+    try {
+      await fetch(`${apiRoot}/api/tickets/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(patch)
+      });
+      updateRemoteTicket(id, patch);
+    } catch {
+      // ignore
+    } finally {
+      setTicketSavingId(null);
+    }
+  };
+
+  const generateArchive = async () => {
+    if (!userId || archiveLoading) return;
+    const period = startOfMonth();
+    setArchiveLoading(true);
+    setArchiveError('');
+    try {
+      const res = await fetch(`${apiRoot}/api/archives`, {
+        method: 'POST',
+        headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          user_id: userId,
+          period: { type: 'month', start: period.start, end: period.end }
+        })
+      }).then((r) => r.json());
+      if (res?.archive) setArchive(res.archive);
+    } catch {
+      setArchiveError('生成失败，请稍后重试');
+    } finally {
+      setArchiveLoading(false);
+    }
+  };
+
+  const ensureShareUrl = async (): Promise<string | null> => {
+    if (!archive?.id) return null;
+    if (archive?.share?.share_url) return archive.share.share_url;
+    const res = await fetch(`${apiRoot}/api/archives/${encodeURIComponent(archive.id)}/share`, {
+      method: 'POST',
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' })
+    }).then((r) => r.json());
+    const shareUrl = res?.share_url;
+    if (shareUrl) {
+      setArchive((prev: any) => prev ? { ...prev, share: { ...(prev.share ?? {}), share_url: shareUrl, share_code: res?.share_code, is_public: true } } : prev);
+      return shareUrl;
+    }
+    return null;
+  };
+
+  const openShare = async (print?: boolean) => {
+    if (archiveShareLoading) return;
+    setArchiveShareLoading(true);
+    try {
+      const shareUrl = await ensureShareUrl();
+      if (!shareUrl) return;
+      const base = apiRoot || window.location.origin;
+      const full = shareUrl.startsWith('http') ? shareUrl : `${base}${shareUrl}`;
+      const final = print ? `${full}${full.includes('?') ? '&' : '?'}print=1` : full;
+      window.open(final, '_blank');
+    } catch {
+      // ignore
+    } finally {
+      setArchiveShareLoading(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-xl mx-auto space-y-8">
@@ -848,6 +1138,90 @@ function PocketPanel({ model, props, onAction }: { model: any; props: any; onAct
       </div>
 
       <div className="space-y-3">
+        <span className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 block">图鉴</span>
+        {archive ? (
+          <div className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden">
+            <div className="relative h-36 bg-gradient-to-br from-purple-900/80 to-indigo-900/80">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center px-6">
+                  <h2 className="text-2xl font-semibold text-white mb-2">{archive.title}</h2>
+                  <p className="text-white/60 text-sm">{archive.period?.start} - {archive.period?.end}</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-3 p-6 border-b border-white/10 text-center">
+              <StatItem value={archive.stats?.total_trips ?? 0} label="次出行" />
+              <StatItem value={archive.stats?.total_places ?? 0} label="个地点" />
+              <StatItem value={`${archive.stats?.total_distance ?? 0}km`} label="总里程" />
+              <StatItem value={archive.stats?.night_owl_score ?? 0} label="夜猫指数" />
+            </div>
+            <div className="p-6">
+              <h3 className="text-lg font-medium text-white mb-4">精选瞬间</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {(archive.featured_tickets ?? []).slice(0, 6).map((t: any) => (
+                  <div key={t.ticket_id} className="aspect-square rounded-lg overflow-hidden border border-white/10">
+                    {t.image_ref ? (
+                      <div className="w-full h-full nf-grade" style={resolveImageStyle(t.image_ref, t.place_name ?? 'ticket')} />
+                    ) : (
+                      <div className="w-full h-full bg-white/5" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {(archive.footprint ?? []).length ? (
+              <div className="px-6 pb-6">
+                <h3 className="text-sm font-medium text-white/80 mb-3">足迹地图</h3>
+                <FootprintMiniMap footprint={archive.footprint ?? []} />
+              </div>
+            ) : null}
+            <div className="p-6 flex gap-4">
+              <button
+                onClick={() => openShare(false)}
+                disabled={archiveShareLoading}
+                className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl text-white font-medium disabled:opacity-50"
+              >
+                {archiveShareLoading ? '生成中…' : '分享图鉴'}
+              </button>
+              <button
+                onClick={() => openShare(true)}
+                disabled={archiveShareLoading}
+                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white disabled:opacity-50"
+              >
+                {archiveShareLoading ? '生成中…' : '导出 PDF'}
+              </button>
+            </div>
+            <div className="px-6 pb-6">
+              <button
+                onClick={generateArchive}
+                disabled={archiveLoading}
+                className="w-full py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-white/70 text-sm disabled:opacity-50"
+              >
+                {archiveLoading ? '生成中…' : '重新生成'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 bg-white/[0.02] border border-white/5 rounded-[2rem]">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-lg font-light text-white/80">生成本月图鉴</div>
+                <div className="text-[11px] text-white/30 mt-1">把票根整理成一份夜行记录</div>
+              </div>
+              <button
+                onClick={generateArchive}
+                disabled={archiveLoading}
+                className="px-5 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white text-sm disabled:opacity-50"
+              >
+                {archiveLoading ? '生成中…' : '生成'}
+              </button>
+            </div>
+            {archiveError ? <div className="text-[10px] text-amber-400/70 mt-2">{archiveError}</div> : null}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
         <span className="text-[9px] mono uppercase tracking-[0.3em] text-white/15 block">票根</span>
         <div className="grid grid-cols-1 gap-3">
           {items.length === 0 ? (
@@ -855,6 +1229,10 @@ function PocketPanel({ model, props, onAction }: { model: any; props: any; onAct
           ) : (
             items.slice(0, 12).map((t, i) => {
               const imageRef = t.image_ref ?? t.cover_ref ?? '';
+              const canEdit = Boolean(t.remote && userId);
+              const isFavorite = Boolean(t.is_favorite);
+              const isEditing = editingTicketId === t.id;
+              const draft = noteDrafts[t.id] ?? String(t.memory_note ?? '');
               return (
                 <div key={i} className="p-6 bg-white/[0.02] border border-white/5 rounded-[2rem]">
                   <div className="flex gap-4">
@@ -864,9 +1242,65 @@ function PocketPanel({ model, props, onAction }: { model: any; props: any; onAct
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
                         <span className="text-[9px] mono uppercase tracking-[0.3em] text-white/15">{t.type ?? 'OUTCOME'}</span>
-                        <span className="text-[9px] mono text-white/10">{t.date ?? ''}</span>
+                        <div className="flex items-center gap-3">
+                          {canEdit ? (
+                            <button
+                              onClick={() => saveTicketPatch(t.id, { is_favorite: !isFavorite })}
+                              className={`text-[10px] mono uppercase tracking-[0.2em] ${isFavorite ? 'text-amber-300/80' : 'text-white/20 hover:text-white/40'} transition`}
+                            >
+                              ★
+                            </button>
+                          ) : null}
+                          <span className="text-[9px] mono text-white/10">{t.date ?? ''}</span>
+                        </div>
                       </div>
                       <div className="text-xl font-light italic text-white/80 mt-2">{t.title ?? ''}</div>
+                      {canEdit ? (
+                        <div className="mt-3">
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <textarea
+                                value={draft}
+                                onChange={(e) => setNoteDrafts((prev) => ({ ...prev, [t.id]: e.target.value }))}
+                                placeholder="写一句备注"
+                                className="w-full bg-white/[0.03] border border-white/10 rounded-xl p-3 text-xs text-white/70 placeholder-white/20 focus:outline-none focus:ring-1 focus:ring-white/10"
+                                rows={2}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingTicketId(null);
+                                    setNoteDrafts((prev) => ({ ...prev, [t.id]: String(t.memory_note ?? '') }));
+                                  }}
+                                  className="px-3 py-1.5 text-xs bg-white/5 rounded-lg text-white/40"
+                                >
+                                  取消
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    saveTicketPatch(t.id, { memory_note: draft });
+                                    setEditingTicketId(null);
+                                  }}
+                                  className="px-3 py-1.5 text-xs bg-white/10 rounded-lg text-white/70"
+                                  disabled={ticketSavingId === t.id}
+                                >
+                                  {ticketSavingId === t.id ? '保存中…' : '保存'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditingTicketId(t.id);
+                                setNoteDrafts((prev) => ({ ...prev, [t.id]: String(t.memory_note ?? '') }));
+                              }}
+                              className="text-xs text-white/30 hover:text-white/50 transition"
+                            >
+                              {t.memory_note ? `备注：${t.memory_note}` : '添加备注'}
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -877,6 +1311,79 @@ function PocketPanel({ model, props, onAction }: { model: any; props: any; onAct
       </div>
     </div>
   );
+}
+
+function StatItem({ value, label }: { value: any; label: string }) {
+  return (
+    <div className="text-center">
+      <div className="text-lg font-semibold text-white">{value}</div>
+      <div className="text-[9px] mono uppercase tracking-[0.2em] text-white/40 mt-1">{label}</div>
+    </div>
+  );
+}
+
+function FootprintMiniMap({ footprint }: { footprint: Array<{ lat: number; lng: number; visit_count: number; place_name: string }> }) {
+  const points = Array.isArray(footprint) ? footprint : [];
+  const lats = points.map((p) => p.lat).filter((v) => Number.isFinite(v));
+  const lngs = points.map((p) => p.lng).filter((v) => Number.isFinite(v));
+  if (!lats.length || !lngs.length) {
+    return <div className="h-28 rounded-2xl bg-white/[0.04] border border-white/5" />;
+  }
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latRange = Math.max(0.001, maxLat - minLat);
+  const lngRange = Math.max(0.001, maxLng - minLng);
+
+  return (
+    <div className="relative h-28 rounded-2xl bg-white/[0.03] border border-white/5 overflow-hidden">
+      <div className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '24px 24px'
+        }}
+      />
+      {points.slice(0, 24).map((p, idx) => {
+        const left = 5 + ((p.lng - minLng) / lngRange) * 90;
+        const top = 5 + (1 - (p.lat - minLat) / latRange) * 90;
+        const size = Math.min(12, 4 + (p.visit_count || 1) * 2);
+        return (
+          <div
+            key={idx}
+            title={p.place_name}
+            className="absolute rounded-full bg-purple-400/60 shadow-[0_0_12px_rgba(168,85,247,0.35)]"
+            style={{
+              left: `${left}%`,
+              top: `${top}%`,
+              width: `${size}px`,
+              height: `${size}px`,
+              transform: 'translate(-50%, -50%)'
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function formatDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function safeParse(raw?: string) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 
@@ -929,6 +1436,487 @@ function SkyStats({ model, props, onAction }: { model: any; props: any; onAction
             入口
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SkyAtmosphere({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
+  const lat = Number(getByPath(model, props?.latPath ?? '/context/location/lat') ?? 31.23);
+  const lng = Number(getByPath(model, props?.lngPath ?? '/context/location/lng') ?? 121.47);
+  const city = resolveText(model, { path: props?.cityPath ?? '/context/location/city_id' }) || 'Shanghai';
+  const pressure = resolveText(model, { path: props?.pressurePath ?? '/sky/pressure' }) || 'Moderate';
+  const ambient = resolveText(model, { path: props?.ambientPath ?? '/sky/ambient' }) || '14 Active';
+  const userId = React.useMemo(() => getOrCreateUserId(), []);
+  const [atmosphere, setAtmosphere] = React.useState<any | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const pushed = resolveText(model, { path: '/atmosphere_json' });
+  const pushedUsers = resolveText(model, { path: '/atmosphere_users' });
+  const [presenceOverride, setPresenceOverride] = React.useState<any | null>(null);
+
+  React.useEffect(() => {
+    if (!pushed) return;
+    try {
+      const parsed = JSON.parse(pushed);
+      setAtmosphere(parsed);
+    } catch {
+      // ignore
+    }
+  }, [pushed]);
+
+  React.useEffect(() => {
+    if (!pushedUsers) return;
+    try {
+      const parsed = JSON.parse(pushedUsers);
+      setPresenceOverride(parsed);
+    } catch {
+      // ignore
+    }
+  }, [pushedUsers]);
+
+  React.useEffect(() => {
+    let active = true;
+    const apiRoot = getApiBase().replace(/\/$/, '');
+    const fetchAtmosphere = async () => {
+      setLoading(true);
+      try {
+        const uidParam = userId ? `&uid=${encodeURIComponent(userId)}` : '';
+        const url = `${apiRoot}/api/atmosphere?lat=${lat}&lng=${lng}&city=${encodeURIComponent(city)}${uidParam}`;
+        const res = await fetch(url, { headers: buildAuthHeaders() });
+        const data = await res.json();
+        if (active) setAtmosphere(data);
+      } catch {
+        // ignore
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    fetchAtmosphere();
+    const timer = setInterval(fetchAtmosphere, 120000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [lat, lng, city]);
+
+  if (!atmosphere) {
+    return <SkyStats model={model} props={props} onAction={onAction} />;
+  }
+
+  const anonymousUsers = presenceOverride ?? atmosphere.anonymous_users ?? { total: 0, nearby: 0 };
+
+  return (
+    <div className="relative w-full min-h-[70vh] px-4 py-8 overflow-hidden">
+      <CityMapBackground hotspots={atmosphere.hotspots ?? []} pulseLevel={atmosphere.pulse?.level ?? 'quiet'} />
+      <div className="relative z-10 max-w-xl mx-auto text-center space-y-8">
+        <div className="space-y-2">
+          <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">氛围</h1>
+          <p className="text-[10px] mono text-white/20 tracking-[0.4em] uppercase">{city}</p>
+        </div>
+
+        <div className="flex flex-col items-center gap-4">
+          <PulseIndicator level={atmosphere.pulse?.level ?? 'quiet'} score={atmosphere.pulse?.score ?? 0} />
+          <p className="text-lg text-white/80">{atmosphere.pulse?.description ?? ''}</p>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-4xl font-light text-white/90">
+            {anonymousUsers?.total ?? 0}
+          </div>
+          <div className="text-sm text-white/60">人正在这座城市的深夜中漫游</div>
+          <div className="text-xs text-white/40">其中 {anonymousUsers?.nearby ?? 0} 人在你附近</div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 pt-2">
+          <AtmosphereCard icon="🌡️" label="温度" value={`${atmosphere.weather?.temperature ?? 0}°`} />
+          <AtmosphereCard icon="🏪" label="营业中" value={`${atmosphere.open_places?.total ?? 0}`} />
+          <AtmosphereCard icon="💡" label="热点区" value={`${(atmosphere.hotspots ?? []).length}`} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <button
+            onClick={() => onAction('LIGHT_ON')}
+            className="w-full py-4 rounded-full bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-[0.4em] text-white/30 hover:text-white transition-all shadow-xl"
+          >
+            点亮
+          </button>
+          <button
+            onClick={() => onAction('OPEN_WHISPERS')}
+            className="w-full py-4 rounded-full bg-white/[0.05] border border-white/10 text-[10px] mono uppercase tracking-[0.4em] text-white/30 hover:text-white transition-all shadow-xl"
+          >
+            入口
+          </button>
+        </div>
+
+        <div className="text-[9px] mono uppercase tracking-[0.35em] text-white/15">
+          {loading ? '同步中…' : `${pressure} · ${ambient}`}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AtmosphereCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <div className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl text-center">
+      <div className="text-xl mb-2">{icon}</div>
+      <div className="text-[10px] mono uppercase tracking-[0.3em] text-white/30">{label}</div>
+      <div className="text-lg text-white/80 mt-2">{value}</div>
+    </div>
+  );
+}
+
+function PulseIndicator({ level, score }: { level: string; score: number }) {
+  const colors: Record<string, string> = {
+    quiet: 'from-slate-600 to-slate-800',
+    moderate: 'from-blue-600 to-indigo-800',
+    vibrant: 'from-purple-600 to-pink-800',
+    bustling: 'from-orange-600 to-red-800'
+  };
+  const palette = colors[level] ?? colors.quiet;
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <div className={`absolute w-28 h-28 rounded-full bg-gradient-to-br ${palette} animate-pulse opacity-30`} />
+      <div className={`absolute w-20 h-20 rounded-full bg-gradient-to-br ${palette} animate-ping opacity-20`} style={{ animationDuration: '2s' }} />
+      <div className="relative z-10 w-16 h-16 rounded-full bg-slate-900/80 flex items-center justify-center">
+        <span className="text-2xl font-bold text-white">{score}</span>
+      </div>
+    </div>
+  );
+}
+
+function CityMapBackground({ hotspots, pulseLevel }: { hotspots: any[]; pulseLevel: string }) {
+  const coords = (hotspots ?? [])
+    .map((spot) => spot?.center)
+    .filter((c) => Number.isFinite(c?.lat) && Number.isFinite(c?.lng));
+  const lats = coords.map((c) => c.lat as number);
+  const lngs = coords.map((c) => c.lng as number);
+  const minLat = lats.length ? Math.min(...lats) : 0;
+  const maxLat = lats.length ? Math.max(...lats) : 0;
+  const minLng = lngs.length ? Math.min(...lngs) : 0;
+  const maxLng = lngs.length ? Math.max(...lngs) : 0;
+  const latRange = Math.max(0.001, maxLat - minLat);
+  const lngRange = Math.max(0.001, maxLng - minLng);
+
+  return (
+    <div className="absolute inset-0">
+      <div className="absolute inset-0 opacity-10"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '50px 50px'
+        }}
+      />
+      {(hotspots ?? []).slice(0, 8).map((spot, i) => (
+        <div
+          key={i}
+          className="absolute w-16 h-16 rounded-full animate-pulse"
+          style={{
+            left: `${10 + ((Number(spot?.center?.lng ?? 0) - minLng) / lngRange) * 80}%`,
+            top: `${10 + (1 - (Number(spot?.center?.lat ?? 0) - minLat) / latRange) * 80}%`,
+            background: `radial-gradient(circle, rgba(255,100,100,${(spot?.intensity ?? 0.5) * 0.5}) 0%, transparent 70%)`,
+            animationDelay: `${i * 0.3}s`
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function VeilMomentStream({ model, props, onAction }: { model: any; props: any; onAction: (name: string, payload?: any) => void }) {
+  const momentsPath = props?.momentsPath ?? '/veil/moments';
+  const modelMoments: any[] = resolveList(model, momentsPath);
+  const tick = resolveNumber(model, '/moments_tick', 0);
+  const [moments, setMoments] = React.useState<any[]>([]);
+  const [selected, setSelected] = React.useState<any | null>(null);
+  const [uploading, setUploading] = React.useState(false);
+  const [mode, setMode] = React.useState<'stream' | 'screensaver'>('stream');
+  const [showConsent, setShowConsent] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
+  const apiRoot = getApiBase().replace(/\/$/, '');
+  const userId = React.useMemo(() => getOrCreateUserId(), []);
+
+  const fetchMoments = React.useCallback(async () => {
+    try {
+      const res = await fetch(`${apiRoot}/api/moments?limit=24&sort=recent`, {
+        headers: buildAuthHeaders()
+      });
+      const data = await res.json();
+      const list = Array.isArray(data?.moments) ? data.moments : [];
+      setMoments(list);
+    } catch {
+      // ignore
+    }
+  }, [apiRoot]);
+
+  React.useEffect(() => {
+    fetchMoments();
+  }, [fetchMoments, tick]);
+
+  const hasConsent = () => {
+    if (typeof window === 'undefined') return true;
+    try {
+      return window.localStorage.getItem('nightfall_veil_consent') === 'true';
+    } catch {
+      return true;
+    }
+  };
+
+  const acceptConsent = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('nightfall_veil_consent', 'true');
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleUploadClick = () => {
+    if (hasConsent()) {
+      fileRef.current?.click();
+      return;
+    }
+    setShowConsent(true);
+  };
+
+  const handleUpload = async (file?: File | null) => {
+    if (!file || uploading) return;
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      const dataUrl: string = await new Promise((resolve, reject) => {
+        reader.onerror = () => reject(reader.error);
+        reader.onload = () => resolve(String(reader.result ?? ''));
+        reader.readAsDataURL(file);
+      });
+      const rawLat = Number(getByPath(model, '/context/location/lat'));
+      const rawLng = Number(getByPath(model, '/context/location/lng'));
+      const lastTicket = getPocketTickets()[0];
+      const lastPayload = lastTicket?.bundle?.primary_ending?.payload ?? {};
+      const payload: any = {
+        user_id: userId ?? 'anonymous',
+        image_data: dataUrl,
+        caption: '',
+        place_id: String(lastPayload.place_id ?? lastPayload.id ?? ''),
+        place_name: String(lastPayload.name ?? '')
+      };
+      if (Number.isFinite(rawLat)) payload.place_lat = rawLat;
+      if (Number.isFinite(rawLng)) payload.place_lng = rawLng;
+
+      await fetch(`${apiRoot}/api/moments`, {
+        method: 'POST',
+        headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload)
+      });
+      await fetchMoments();
+    } catch {
+      // ignore
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const likeMoment = async (id: string) => {
+    try {
+      const res = await fetch(`${apiRoot}/api/moments/${encodeURIComponent(id)}/like`, {
+        method: 'POST',
+        headers: buildAuthHeaders()
+      });
+      const data = await res.json();
+      setMoments((prev) => prev.map((m) => (m.id === id ? { ...m, likes: data?.likes ?? (m.likes ?? 0) + 1 } : m)));
+    } catch {
+      // ignore
+    }
+  };
+
+  const data = moments.length ? moments : modelMoments;
+
+  return (
+    <div className="relative w-full min-h-[70vh] bg-black/60 rounded-[2.5rem] border border-white/5 overflow-hidden">
+      <div className="p-6 text-center relative">
+        <h1 className="text-5xl font-extralight tracking-tighter italic text-white/90">幕布</h1>
+        <p className="text-[9px] mono uppercase tracking-[0.4em] text-white/10">瞬间共享</p>
+        <button
+          onClick={() => setMode((prev) => (prev === 'stream' ? 'screensaver' : 'stream'))}
+          className="absolute right-6 top-6 text-[9px] mono uppercase tracking-[0.35em] text-white/30 hover:text-white/60"
+        >
+          {mode === 'stream' ? '屏保' : '返回'}
+        </button>
+      </div>
+
+      {mode === 'screensaver' ? (
+        <VeilScreensaver moments={data} />
+      ) : (
+        <div className="columns-2 gap-2 p-4">
+          {data.length === 0 ? (
+            <EmptyState title="还没有瞬间" subtitle="上传一张夜晚的照片" />
+          ) : (
+            data.map((moment) => (
+              <MomentCard key={moment.id} moment={moment} onClick={() => setSelected(moment)} onLike={() => likeMoment(moment.id)} />
+            ))
+          )}
+        </div>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => handleUpload(e.target.files?.[0] ?? null)}
+      />
+
+      {mode === 'stream' ? (
+        <button
+          onClick={handleUploadClick}
+          disabled={uploading}
+          className="fixed bottom-24 right-6 w-14 h-14 rounded-full bg-purple-600 hover:bg-purple-700 flex items-center justify-center shadow-lg shadow-purple-600/30 disabled:opacity-50"
+        >
+          {uploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white" />}
+        </button>
+      ) : null}
+
+      {selected ? (
+        <MomentDetail moment={selected} onClose={() => setSelected(null)} onLike={() => likeMoment(selected.id)} />
+      ) : null}
+      {showConsent ? (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[#0b0b12] border border-white/10 rounded-2xl p-6 text-center space-y-4">
+            <div className="text-lg text-white/90">上传提示</div>
+            <div className="text-xs text-white/50 leading-relaxed">
+              你上传的照片会展示在“幕布”公共瞬间流中。请勿上传包含个人隐私或不适内容的图片。
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConsent(false)}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 text-white/60 text-sm"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  acceptConsent();
+                  setShowConsent(false);
+                  fileRef.current?.click();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-purple-600 text-white text-sm"
+              >
+                同意并上传
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MomentCard({ moment, onClick, onLike }: { moment: any; onClick: () => void; onLike: () => void }) {
+  const img = moment.image_url || moment.thumbnail_url || '';
+  return (
+    <button onClick={onClick} className="relative mb-2 rounded-lg overflow-hidden group w-full">
+      <img src={img} alt={moment.caption || '瞬间'} className="w-full object-cover" loading="lazy" />
+      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3">
+        {moment.place_name ? (
+          <div className="flex items-center gap-1 text-white text-sm">
+            <MapPin size={14} />
+            <span className="truncate">{moment.place_name}</span>
+          </div>
+        ) : null}
+        <div className="flex items-center gap-2 text-white/70 text-xs mt-2">
+          <button onClick={(e) => { e.stopPropagation(); onLike(); }} className="flex items-center gap-1">
+            <Heart size={12} />
+            <span>{moment.likes ?? 0}</span>
+          </button>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function MomentDetail({ moment, onClose, onLike }: { moment: any; onClose: () => void; onLike: () => void }) {
+  const img = moment.image_url || moment.thumbnail_url || '';
+  const openMap = () => {
+    const lat = Number(moment.place_lat);
+    const lng = Number(moment.place_lng);
+    const name = String(moment.place_name ?? '').trim();
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      window.open(url, '_blank');
+      return;
+    }
+    if (name) {
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+      window.open(url, '_blank');
+    }
+  };
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+      <div className="relative max-w-xl w-full bg-[#0b0b12] rounded-2xl overflow-hidden border border-white/10">
+        <button onClick={onClose} className="absolute top-4 right-4 text-white/60 hover:text-white">
+          <X size={18} />
+        </button>
+        <img src={img} alt="" className="w-full max-h-[70vh] object-cover" />
+        <div className="p-5 space-y-2">
+          {moment.place_name ? <div className="text-white/80 text-sm">{moment.place_name}</div> : null}
+          {moment.caption ? <div className="text-white/60 text-xs">{moment.caption}</div> : null}
+          <button onClick={onLike} className="flex items-center gap-2 text-white/70 text-xs">
+            <Heart size={12} />
+            <span>{moment.likes ?? 0} 喜欢</span>
+          </button>
+          {moment.place_name || (Number.isFinite(Number(moment.place_lat)) && Number.isFinite(Number(moment.place_lng))) ? (
+            <button onClick={openMap} className="text-white/40 text-xs hover:text-white/70">
+              查看地点
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VeilScreensaver({ moments }: { moments: any[] }) {
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+  const safeMoments = Array.isArray(moments) ? moments : [];
+
+  React.useEffect(() => {
+    if (!safeMoments.length) return;
+    const timer = setInterval(() => {
+      setCurrentIndex((i) => (i + 1) % safeMoments.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [safeMoments.length]);
+
+  if (!safeMoments.length) {
+    return (
+      <div className="p-8">
+        <EmptyState title="还没有瞬间" subtitle="上传一张夜晚的照片" />
+      </div>
+    );
+  }
+
+  const current = safeMoments[currentIndex % safeMoments.length];
+  const img = current.image_url || current.thumbnail_url || '';
+
+  return (
+    <div className="relative w-full min-h-[70vh] bg-black">
+      <img src={img} alt="" className="w-full h-[70vh] object-cover transition-opacity duration-1000" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+      <div className="absolute bottom-10 left-6 right-6 space-y-2">
+        {current.place_name ? (
+          <div className="flex items-center gap-2 text-white/80 text-sm">
+            <MapPin size={14} />
+            <span>{current.place_name}</span>
+          </div>
+        ) : null}
+        {current.caption ? <div className="text-white/70 text-sm">{current.caption}</div> : null}
+      </div>
+      <div className="absolute bottom-4 left-6 right-6 flex gap-1">
+        {safeMoments.slice(0, 10).map((_, i) => (
+          <div key={i} className={`h-1 flex-1 rounded-full ${i === currentIndex ? 'bg-white' : 'bg-white/30'}`} />
+        ))}
       </div>
     </div>
   );

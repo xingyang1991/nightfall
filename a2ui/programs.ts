@@ -1,4 +1,5 @@
 import { ContextSignals, CuratorialBundle } from '../types';
+import type { SceneCard } from '../runtime/skills/registry';
 import { A2UIMessage, A2UIValue } from './messages';
 
 /** Helpers to build typed A2UI values */
@@ -162,20 +163,19 @@ export function programTonightResult(context: ContextSignals, bundle: Curatorial
   ];
 }
 
-export function programDiscover(context: ContextSignals, skills: Array<{ id: string; tag: string; title: string; desc: string }>): A2UIMessage[] {
-  const hero = skills?.[0] ?? null;
+export function programDiscover(context: ContextSignals, scenes: SceneCard[]): A2UIMessage[] {
+  const safeScenes = Array.isArray(scenes) ? scenes : [];
   return [
     {
       surfaceUpdate: {
         surfaceId: 'discover',
         components: [
-          { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-10', children: { explicitList: ['head', 'hero', 'gallery', 'shelf'] } } } },
-          { id: 'head', component: { Box: { className: 'text-center space-y-2 pt-6 pb-4', children: { explicitList: ['title', 'subtitle'] } } } },
+          { id: 'root', component: { Box: { className: 'w-full flex flex-col items-center justify-center min-h-[60vh] py-10 page-entering', children: { explicitList: ['head', 'sceneGrid', 'gallery'] } } } },
+          { id: 'head', component: { Box: { className: 'text-center space-y-2 pt-6 pb-6', children: { explicitList: ['title', 'subtitle'] } } } },
           { id: 'title', component: { Text: { text: { literalString: '发现' }, usageHint: 'h1' } } },
-          { id: 'subtitle', component: { Text: { text: { literalString: '选择一个场景，开始今晚的探索' }, usageHint: 'subtitle' } } },
-          { id: 'hero', component: { CoverHero: { itemPath: '/discover/hero', selectActionName: 'DISCOVER_SELECT_SKILL' } } },
+          { id: 'subtitle', component: { Text: { text: { literalString: '今晚想去哪里？' }, usageHint: 'subtitle' } } },
+          { id: 'sceneGrid', component: { SceneGrid: { itemsPath: '/discover/scenes' } } },
           { id: 'gallery', component: { GalleryWall: { itemsPath: '/discover/gallery_refs', label: '候选墙' } } },
-          { id: 'shelf', component: { CandidateShelf: { itemsPath: '/discover/skills', selectActionName: 'DISCOVER_SELECT_SKILL', skipFirst: true } } },
         ]
       }
     },
@@ -183,7 +183,7 @@ export function programDiscover(context: ContextSignals, skills: Array<{ id: str
       dataModelUpdate: {
         surfaceId: 'discover',
         contents: [
-          { key: 'discover', value: vMap({ stage: 'library', skills, hero, gallery_refs: [] }) },
+          { key: 'discover', value: vMap({ stage: 'scenes', scenes: safeScenes, skills: [], hero: null, gallery_refs: [] }) },
           { key: 'context', value: plainToValue(context) }
         ]
       }
@@ -199,7 +199,7 @@ export function programSky(context: ContextSignals): A2UIMessage[] {
       surfaceUpdate: {
         surfaceId: 'sky',
         components: [
-          { id: 'root', component: { SkyStats: { gridIdPath: '/context/location/grid_id', pressurePath: '/sky/pressure', ambientPath: '/sky/ambient' } } },
+          { id: 'root', component: { SkyAtmosphere: { latPath: '/context/location/lat', lngPath: '/context/location/lng', cityPath: '/context/location/city_id', pressurePath: '/sky/pressure', ambientPath: '/sky/ambient', backdropPath: '/sky/backdrop_ref' } } },
         ]
       }
     },
@@ -283,7 +283,7 @@ export function programVeil(context: ContextSignals): A2UIMessage[] {
       surfaceUpdate: {
         surfaceId: 'veil',
         components: [
-          { id: 'root', component: { VeilCollagePanel: { collagePath: '/veil/collage' } } },
+          { id: 'root', component: { VeilMomentStream: { momentsPath: '/veil/moments' } } },
         ]
       }
     },
@@ -291,7 +291,8 @@ export function programVeil(context: ContextSignals): A2UIMessage[] {
       dataModelUpdate: {
         surfaceId: 'veil',
         contents: [
-          { key: 'veil', value: vMap({ collage: { tiles: [], caption: '月光下的城市剪影', cover_ref: '', collage_id: 'veil_default' } }) },
+          { key: 'veil', value: vMap({ moments: [] }) },
+          { key: 'moments_tick', value: vNum(0) },
           { key: 'context', value: plainToValue(context) }
         ]
       }

@@ -29,6 +29,18 @@ export interface CandidateItem {
   tag: string;
   desc: string;
   image_ref?: string;
+  image_source?: 'amap' | 'unsplash' | 'default' | 'search' | 'google';
+  place_data?: {
+    lat?: number;
+    lng?: number;
+    name?: string;
+    address?: string;
+    rating?: string;
+    distance?: string;
+    walk_time?: string;
+    place_id?: string;
+    opentime?: string;
+  };
 }
 
 export interface CuratorialBundle {
@@ -105,4 +117,71 @@ export interface WhisperNote {
   content: string;
   symbol: string;
   timestamp: string;
+}
+
+export interface CityAtmosphere {
+  timestamp: number;
+  city: string;
+  pulse: {
+    level: 'quiet' | 'moderate' | 'vibrant' | 'bustling';
+    score: number;
+    description: string;
+  };
+  hotspots: Array<{
+    name: string;
+    center: { lat: number; lng: number };
+    intensity: number;
+    category: string;
+  }>;
+  anonymous_users: {
+    total: number;
+    nearby: number;
+    distribution: Array<{ area: string; count: number }>;
+  };
+  weather: {
+    condition: string;
+    temperature: number;
+    humidity: number;
+    mood: string;
+  };
+  open_places: {
+    total: number;
+    by_category: Record<string, number>;
+  };
+}
+
+export interface Moment {
+  id: string;
+  user_id: string;
+  image: {
+    url: string;
+    thumbnail_url: string;
+    width: number;
+    height: number;
+    blurhash?: string;
+  };
+  place?: {
+    id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+  };
+  caption?: string;
+  taken_at: string;
+  uploaded_at: string;
+  likes: number;
+  views: number;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export interface MomentQuery {
+  page: number;
+  limit: number;
+  filter?: {
+    near?: { lat: number; lng: number; radius: number };
+    place_id?: string;
+    user_id?: string;
+  };
+  sort?: 'recent' | 'popular' | 'nearby';
 }

@@ -32,6 +32,20 @@ export interface AmapPhoto {
   url: string;
 }
 
+export interface AmapPlaceDetails {
+  id: string;
+  name: string;
+  address: string;
+  location: string;
+  lat: number;
+  lng: number;
+  tel?: string;
+  rating?: string;
+  photos: string[];
+  business_area?: string;
+  opentime?: string;
+}
+
 export interface SearchOptions {
   keywords: string;
   city?: string;
@@ -131,6 +145,60 @@ export async function searchNearby(options: SearchOptions): Promise<AmapPlace[]>
   } catch (error) {
     console.error('[AMAP] Nearby search error:', error);
     return [];
+  }
+}
+
+/**
+ * 获取 POI 详情（含照片）
+ */
+export async function getPlaceDetails(poiId: string): Promise<AmapPlaceDetails | null> {
+  if (!AMAP_API_KEY) {
+    console.error('[AMAP] API Key not configured');
+    return null;
+  }
+
+  if (!poiId) return null;
+
+  try {
+    const params = new URLSearchParams({
+      key: AMAP_API_KEY,
+      id: poiId,
+      extensions: 'all',
+      output: 'json'
+    });
+    const url = `https://restapi.amap.com/v3/place/detail?${params.toString()}`;
+    console.log('[AMAP] Fetching place details:', poiId);
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== '1' || !data.pois || !data.pois.length) {
+      console.error('[AMAP] Place detail failed:', data.info);
+      return null;
+    }
+
+    const poi = data.pois[0];
+    const [lng, lat] = (poi.location || '0,0').split(',').map(Number);
+    const photos: string[] = (poi.photos || [])
+      .map((p: any) => p.url)
+      .filter((u: string) => Boolean(u));
+
+    return {
+      id: poi.id || '',
+      name: poi.name || '',
+      address: poi.address || '',
+      location: poi.location || '',
+      lat,
+      lng,
+      tel: poi.tel || '',
+      rating: poi.biz_ext?.rating || '',
+      photos,
+      business_area: poi.business_area || '',
+      opentime: poi.biz_ext?.open_time || ''
+    };
+  } catch (error) {
+    console.error('[AMAP] getPlaceDetails error:', error);
+    return null;
   }
 }
 

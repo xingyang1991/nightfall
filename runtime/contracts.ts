@@ -1,4 +1,4 @@
-import type { ContextSignals, CuratorialBundle, CandidateItem } from '../types';
+import type { ContextSignals, CuratorialBundle, CandidateItem, CityAtmosphere, Moment, MomentQuery } from '../types';
 import type { A2UIMessage } from '../a2ui/messages';
 
 /** Canonical intents understood by the stage manager. */
@@ -24,6 +24,8 @@ export type ToolName =
   | 'weather.forecast'
   | 'storage.pocket.append'
   | 'storage.whispers.append';
+
+export type { CityAtmosphere, Moment, MomentQuery };
 
 export type DataScope = 'context.read' | 'pocket.write' | 'whispers.write';
 
