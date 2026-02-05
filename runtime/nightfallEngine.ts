@@ -10,7 +10,6 @@ import {
   programPocket,
   programSky,
   programWhispers,
-  programRadio,
   programVeil,
   programFootprints
 } from '../a2ui/programs';
@@ -75,14 +74,12 @@ export class NightfallEngine {
       ...programSky(context),
       ...programPocket(context),
       ...programWhispers(context),
-      ...programRadio(context),
       ...programVeil(context),
       ...programFootprints(context),
 
       ...this.patchSky(context),
       ...this.patchPocket(),
       ...this.patchWhispers(),
-      ...this.patchRadio(),
       ...this.patchVeil(context)
     ];
 
@@ -285,7 +282,6 @@ export class NightfallEngine {
 
         if (outcomeAction === 'PLAY') {
           effects.push({ type: 'set_channel', channel: 'sky' });
-          messages.push(...this.patchRadio({ narrative: 'On air…', playing: true }));
           return { messages, effects };
         }
 
@@ -345,13 +341,6 @@ export class NightfallEngine {
         effects.push({ type: 'open_whispers' });
         return { messages, effects };
 
-      /** Radio strip */
-      case 'RADIO_TOGGLE': {
-        const next = !Boolean(this.session.radioPlaying);
-        this.session.radioPlaying = next;
-        messages.push(...this.patchRadio({ playing: next }));
-        return { messages, effects };
-      }
 
       // P2-3: Focus 模式入口
       case 'ENTER_FOCUS_MODE': {
@@ -469,7 +458,6 @@ export class NightfallEngine {
       await this.enrichNav(res.bundle, context);
       return [
         ...programTonightResult(context, res.bundle),
-        ...this.patchRadio(),
         ...this.patchVeil(context),
         ...this.patchDiscoverGallery(res.bundle)
       ];
@@ -766,33 +754,6 @@ export class NightfallEngine {
     await apply(bundle.plan_b);
   }
 
-  private patchRadio(opts?: { narrative?: string; playing?: boolean }): A2UIMessage[] {
-    const now = Date.now();
-    if (!shouldUpdateSurface(this.session, 'radio', now, this.runtime.getAudit())) return [];
-    if (opts?.playing !== undefined) this.session.radioPlaying = opts.playing;
-    if (typeof opts?.narrative === 'string') this.session.radioNarrative = opts.narrative;
-    const playing = Boolean(this.session.radioPlaying);
-    const narrative = String(this.session.radioNarrative ?? '…');
-    const coverRef =
-      this.session.lastBundle?.media_pack?.fragment_ref ||
-      this.session.lastBundle?.media_pack?.cover_ref ||
-      this.session.lastCandidates?.[0]?.image_ref ||
-      '';
-    return [
-      {
-        dataModelUpdate: {
-          surfaceId: 'radio',
-          contents: [
-            { key: 'radio', value: { valueMap: [
-              { key: 'playing', value: { valueBoolean: playing } },
-              { key: 'narrative', value: { valueString: narrative } },
-              { key: 'cover_ref', value: { valueString: coverRef } }
-            ]}}
-          ]
-        }
-      } as any
-    ];
-  }
 
   private patchPocket(): A2UIMessage[] {
     const now = Date.now();

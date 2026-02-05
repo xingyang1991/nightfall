@@ -26,7 +26,7 @@ export function makeManusPromptSkill(pkg: ManusSkillPackage, override?: ManusSki
     defaultPrompt: pkg.defaultPrompt || undefined,
     stages: override?.stages ?? ['candidate', 'finalize'],
     intents: override?.intents ?? ['explore', 'place_anchor', 'tonight_answer'],
-    allowedSurfaces: override?.allowedSurfaces ?? ['tonight', 'discover', 'pocket', 'radio'],
+    allowedSurfaces: override?.allowedSurfaces ?? ['tonight', 'discover', 'pocket'],
     permissions: override?.permissions ?? { tools: [], dataScopes: ['context.read'] },
     rateLimit: { perNight: 40, perMinute: 12 },
     uiHints: override?.uiHints ?? { toneTags: ['minimal'] }

@@ -8,7 +8,6 @@ export type Intent =
   | 'explore'
   | 'quiet_copresence'
   | 'focus'
-  | 'radio'
   | 'whispers'
   | 'footprint'
   | 'plan_b';

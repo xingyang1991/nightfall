@@ -7,7 +7,6 @@ export const DEFAULT_SURFACE_BUDGET_MS: Record<string, number> = {
   sky: 8000,
   pocket: 30000,
   whispers: 60000,
-  radio: 5000,
   veil: 12 * 60 * 60 * 1000,
   footprints: 60000,
 };

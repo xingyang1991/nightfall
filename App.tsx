@@ -287,8 +287,6 @@ const A2UIBridge: React.FC<BridgeProps> = ({
         </div>
       )}
 
-      {/* Global Radio (A2UI Surface) */}
-      {!isFocusMode && <SurfaceView surfaceId="radio" />}
 
       {/* Global HUD - Top */}
       <div className={`fixed top-6 left-6 right-6 flex justify-between items-center z-50 pointer-events-none transition-all duration-700 ${isFocusMode ? '-translate-y-20 opacity-0' : 'translate-y-0 opacity-100'}`}>

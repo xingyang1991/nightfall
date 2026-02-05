@@ -11,7 +11,7 @@ export const tonightComposerSkill: Skill = {
     description: 'Compresses a user request into one executable ending + one Plan B.',
     stages: ['finalize'],
     intents: ['tonight_answer', 'place_anchor', 'explore', 'plan_b'],
-    allowedSurfaces: ['tonight', 'radio', 'pocket'],
+    allowedSurfaces: ['tonight', 'pocket'],
     permissions: {
       tools: ['maps.link', 'places.search'],
       dataScopes: ['context.read']

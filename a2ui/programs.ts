@@ -276,28 +276,6 @@ export function programWhispers(context: ContextSignals): A2UIMessage[] {
   ];
 }
 
-export function programRadio(context: ContextSignals): A2UIMessage[] {
-  return [
-    {
-      surfaceUpdate: {
-        surfaceId: 'radio',
-        components: [
-          { id: 'root', component: { RadioStrip: { narrativePath: '/radio/narrative', playingPath: '/radio/playing', trackIdPath: '/radio/track_id', coverPath: '/radio/cover_ref' } } },
-        ]
-      }
-    },
-    {
-      dataModelUpdate: {
-        surfaceId: 'radio',
-        contents: [
-          { key: 'radio', value: vMap({ narrative: '…', playing: false, track_id: '', cover_ref: '' }) },
-          { key: 'context', value: plainToValue(context) }
-        ]
-      }
-    },
-    { beginRendering: { surfaceId: 'radio', root: 'root' } }
-  ];
-}
 
 export function programVeil(context: ContextSignals): A2UIMessage[] {
   return [

@@ -61,10 +61,6 @@ export interface CuratorialBundle {
     uiModeHint?: string;
     toneTags?: string[];
   };
-  audio_payload?: {
-    track_id: string;
-    narrative: string;
-  };
   media_pack?: {
     cover_ref?: string;        // 4:5
     gallery_refs?: string[];   // 1:1 smalls
